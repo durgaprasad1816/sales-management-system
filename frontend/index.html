@@ -1,0 +1,1072 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Hardware Management System</title>
+
+    <link rel="stylesheet" href="style.css">
+<style>.required-star { color: #e53935; font-weight: 700; }</style>
+</head>
+
+<body>
+
+<!-- =========================
+     SIDEBAR
+========================= -->
+
+<aside class="sidebar">
+
+    <div class="logo">
+        <div class="logo-icon">H</div>
+
+        <div>
+            <h2>HardwarePro</h2>
+            <span>Management System</span>
+        </div>
+    </div>
+
+    <nav class="navigation">
+
+        <button class="nav-item active" onclick="showPage('dashboard', this)">
+            <span>📊</span>
+            Dashboard
+        </button>
+
+        <button class="nav-item" onclick="showPage('products', this)">
+            <span>📦</span>
+            Products
+        </button>
+
+        <button class="nav-item" onclick="showPage('sales', this)">
+            <span>💰</span>
+            Sales
+        </button>
+
+        <button class="nav-item" onclick="showPage('purchase', this)">
+            <span>🚚</span>
+            Purchase
+        </button>
+
+        <button class="nav-item" onclick="showPage('supplier', this)">
+            <span>🏢</span>
+            Suppliers
+        </button>
+
+        <button class="nav-item" onclick="showPage('customer', this)">
+            <span>👥</span>
+            Customers
+        </button>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <p>Hardware Management</p>
+        <small>Java + JDBC + MySQL</small>
+    </div>
+
+</aside>
+
+
+<!-- =========================
+     MAIN CONTENT
+========================= -->
+
+<main class="main-content">
+
+    <!-- =========================
+         TOP BAR
+    ========================= -->
+
+    <header class="topbar">
+
+        <div>
+            <h1 id="pageTitle">Dashboard</h1>
+            <p id="pageDescription">
+                Overview of your hardware business
+            </p>
+        </div>
+
+        <div class="topbar-right">
+
+            <span class="date" id="currentDate"></span>
+
+            <button class="refresh-btn" onclick="loadDashboard()">
+                ↻ Refresh
+            </button>
+
+        </div>
+
+    </header>
+
+
+    <!-- =====================================================
+         DASHBOARD PAGE
+    ====================================================== -->
+
+    <section id="dashboardPage" class="page active-page">
+
+        <!-- SUMMARY CARDS -->
+
+        <div class="summary-grid">
+
+            <div class="summary-card">
+
+                <div class="card-icon sales-icon">
+                    💰
+                </div>
+
+                <div>
+                    <span>Total Sales</span>
+
+                    <h2 id="totalSales">
+                        ₹0.00
+                    </h2>
+                </div>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <div class="card-icon purchase-icon">
+                    🛒
+                </div>
+
+                <div>
+                    <span>Total Purchase</span>
+
+                    <h2 id="totalPurchase">
+                        ₹0.00
+                    </h2>
+                </div>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <div class="card-icon profit-icon">
+                    📈
+                </div>
+
+                <div>
+                    <span>Profit</span>
+
+                    <h2 id="totalProfit">
+                        ₹0.00
+                    </h2>
+                </div>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <div class="card-icon stock-icon">
+                    📦
+                </div>
+
+                <div>
+                    <span>Total Products</span>
+
+                    <h2 id="totalProducts">
+                        0
+                    </h2>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- DASHBOARD CONTENT -->
+
+        <div class="dashboard-grid">
+
+            <!-- PROFIT & LOSS GRAPH -->
+
+            <div class="dashboard-card chart-card">
+
+                <div class="section-header">
+
+                    <div>
+                        <h2>Profit & Loss</h2>
+
+                        <p>
+                            Business financial overview
+                        </p>
+                    </div>
+
+                </div>
+
+                <div class="chart-container">
+
+                    <canvas id="profitLossChart"></canvas>
+
+                </div>
+
+            </div>
+
+
+            <!-- QUICK ACTIONS -->
+
+            <div class="dashboard-card">
+
+                <div class="section-header">
+
+                    <div>
+                        <h2>Quick Actions</h2>
+
+                        <p>
+                            Frequently used operations
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <div class="quick-actions">
+
+                    <button
+                        class="quick-action"
+                        onclick="showPageByName('sales')">
+
+                        <span class="quick-icon">💰</span>
+
+                        <div>
+                            <strong>New Sale</strong>
+                            <small>Create a customer sale</small>
+                        </div>
+
+                    </button>
+
+
+                    <button
+                        class="quick-action"
+                        onclick="showPageByName('purchase')">
+
+                        <span class="quick-icon">🚚</span>
+
+                        <div>
+                            <strong>New Purchase</strong>
+                            <small>Add stock from supplier</small>
+                        </div>
+
+                    </button>
+
+
+                    <button
+                        class="quick-action"
+                        onclick="showPageByName('products')">
+
+                        <span class="quick-icon">📦</span>
+
+                        <div>
+                            <strong> Product<Add/strong>
+                            <small>Add a new hardware product</small>
+                        </div>
+
+                    </button>
+
+
+                    <button
+                        class="quick-action"
+                        onclick="generateInvoice()">
+
+                        <span class="quick-icon">🧾</span>
+
+                        <div>
+                            <strong>Generate Invoice</strong>
+                            <small>Print a sales invoice</small>
+                        </div>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- PRODUCTS / STOCK -->
+
+        <div class="dashboard-card products-stock-card">
+
+            <div class="section-header">
+
+                <div>
+                    <h2>Product Stock</h2>
+
+                    <p>
+                        Current stock available in your shop
+                    </p>
+                </div>
+
+                <button
+                    class="secondary-btn"
+                    onclick="toggleAllProducts()"
+                    id="showProductsBtn">
+
+                    Show More
+
+                </button>
+
+            </div>
+
+
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+                <select id="dashboardProductSort" onchange="renderDashboardProducts(dashboardProducts)" style="min-width:180px;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;">
+                    <option value="none">Sort: None</option>
+                    <option value="name">Sort by Product Name</option>
+                    <option value="stock">Sort by Stock</option>
+                    <option value="purchase">Sort by Purchase Price</option>
+                    <option value="sale">Sort by Sale Price</option>
+                </select>
+                <select id="dashboardProductFilter" onchange="renderDashboardProducts(dashboardProducts)" style="min-width:160px;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;">
+                    <option value="all">Filter: All</option>
+                    <option value="in">In Stock</option>
+                    <option value="low">Low Stock</option>
+                    <option value="out">Out of Stock</option>
+                </select>
+                <button type="button" class="secondary-btn" onclick="resetDashboardProductControls()">Reset</button>
+            </div>
+
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+
+                    <tr>
+                        <th>Product</th>
+                        <th>Type</th>
+                        <th>Stock</th>
+                        <th>Purchase Price</th>
+                        <th>Sale Price</th>
+                        <th>Status</th>
+                    </tr>
+
+                    </thead>
+
+                    <tbody id="dashboardProducts">
+
+                    <tr>
+                        <td colspan="6" class="loading">
+                            Loading products...
+                        </td>
+                    </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         PRODUCTS PAGE
+    ====================================================== -->
+
+    <section id="productsPage" class="page">
+
+        <div class="page-toolbar">
+
+            <div>
+
+                <h2>Products</h2>
+
+                <p>
+                    Manage your hardware inventory
+                </p>
+
+            </div>
+
+            <!-- Add Product button intentionally hidden; existing add-product functions remain available for import workflows. -->
+
+        </div>
+
+
+        <!-- SEARCH -->
+
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;">
+            <div class="search-box" style="flex:1;min-width:260px;margin-bottom:0;">
+                <span>🔍</span>
+                <input type="text" id="productSearch" placeholder="Search product..." oninput="searchProducts()">
+            </div>
+            <select id="productSort" onchange="applyProductSortFilter()" style="min-width:180px;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;">
+                <option value="none">Sort: None</option>
+                <option value="id">Sort by ID</option>
+                <option value="name">Sort by Product Name</option>
+                <option value="stock">Sort by Stock</option>
+                <option value="purchase">Sort by Purchase Price</option>
+                <option value="sale">Sort by Sale Price</option>
+                <option value="discount">Sort by Discount</option>
+            </select>
+            <select id="productFilter" onchange="applyProductSortFilter()" style="min-width:160px;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;">
+                <option value="all">All Stock</option>
+                <option value="in">In Stock</option>
+                <option value="low">Low Stock</option>
+                <option value="out">Out of Stock</option>
+            </select>
+            <button type="button" class="secondary-btn" onclick="resetProductSortFilter()">Reset</button>
+        </div>
+
+
+        <!-- PRODUCTS TABLE -->
+
+        <div class="dashboard-card">
+
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+
+                    <tr>
+
+                        <th>ID</th>
+                        <th>Product Name</th>
+                        <th>Type</th>
+                        <th>Stock</th>
+                        <th>Purchase Price</th>
+                        <th>Sale Price</th>
+                        <th>Discount</th>
+                        <th>Action</th>
+
+                    </tr>
+
+                    </thead>
+
+                    <tbody id="productsTable">
+
+                    <tr>
+                        <td colspan="8" class="loading">
+                            Loading products...
+                        </td>
+                    </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         SALES PAGE
+    ====================================================== -->
+
+    <section id="salesPage" class="page">
+
+        <div class="page-toolbar">
+
+            <div>
+
+                <h2>New Sale</h2>
+
+                <p>
+                    Create a customer sales invoice
+                </p>
+
+            </div>
+
+            <button
+                class="secondary-btn"
+                onclick="generateInvoice()">
+
+                🧾 Generate Invoice
+
+            </button>
+
+        </div>
+
+
+        <!-- CUSTOMER -->
+
+        <div class="dashboard-card">
+
+            <div class="section-header">
+
+                <div>
+
+                    <h2>Customer Details</h2>
+
+                    <p>
+                        Enter customer information
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 28px !important;">
+                <div class="form-group"><label>Phone <span class="required-star">*</span></label><input id="customerPhone" type="text" placeholder="Enter phone number" required oninput="suggestSalesCustomers()" autocomplete="off" style="width:100%;box-sizing:border-box;"><div id="salesCustomerSuggestions" style="position:relative;z-index:20;"></div></div>
+                <div class="form-group"><label>Customer Name <span class="required-star">*</span></label><input id="customerName" type="text" placeholder="Enter customer name" required style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group"><label>Customer Type <span class="required-star">*</span></label><select id="customerType" required style="width:100%;box-sizing:border-box;"><option value="DIRECT">Direct Customer</option><option value="INDIRECT">Indirect Customer</option></select></div>
+                <div class="form-group"><label>Email</label><input id="customerEmail" type="email" placeholder="customer@example.com" style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group"><label>GST</label><input id="customerGst" type="text" placeholder="GST number (optional)" style="width:100%;box-sizing:border-box;"></div>
+            </div>
+
+        </div>
+
+
+        <!-- SALE PRODUCTS -->
+
+        <div class="dashboard-card">
+
+            <div class="section-header">
+
+                <div>
+
+                    <h2>Sale Products</h2>
+
+                    <p>
+                        Add one or more products
+                    </p>
+
+                </div>
+
+                <button
+                    class="secondary-btn"
+                    onclick="addSaleRow()">
+
+                    + Add Product
+
+                </button>
+
+            </div>
+
+
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+
+                    <tr>
+
+                        <th>Product</th>
+                        <th>Available</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Product Discount</th>
+                        <th>Total</th>
+                        <th>Action</th>
+
+                    </tr>
+
+                    </thead>
+
+                    <tbody id="saleItems">
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+            <!-- SALE TOTAL -->
+
+            <div class="sale-summary">
+
+                <div class="summary-line">
+
+                    <span>Subtotal</span>
+
+                    <strong id="saleSubtotal">
+                        ₹0.00
+                    </strong>
+
+                </div>
+
+
+                <div class="summary-line">
+
+                    <span>Discount</span>
+
+                    <strong id="saleDiscount">
+                        ₹0.00
+                    </strong>
+
+                </div>
+
+
+                <div class="summary-line">
+
+                    <span>GST</span>
+
+                    <strong id="saleGST">
+                        ₹0.00
+                    </strong>
+
+                </div>
+
+
+                <div class="summary-line final-line">
+
+                    <span>Final Price</span>
+
+                    <strong id="saleFinalTotal">
+                        ₹0.00
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-actions">
+
+                <button
+                    class="secondary-btn"
+                    onclick="clearSaleForm()">
+
+                    Clear
+
+                </button>
+
+
+                <button
+                    class="primary-btn"
+                    onclick="saveSale()">
+
+                    Generate Sale
+
+                </button>
+
+            </div>
+
+        </div>
+
+        <!-- =====================================================
+             SALES HISTORY
+        ====================================================== -->
+
+        <div id="salesHistorySection"></div>
+
+    </section>
+
+
+    <!-- =====================================================
+         PURCHASE PAGE
+    ====================================================== -->
+
+    <section id="purchasePage" class="page">
+
+        <div class="page-toolbar">
+
+            <div>
+
+                <h2>Purchase</h2>
+
+                <p>
+                    Purchase products from suppliers
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- SUPPLIER -->
+
+        <div class="dashboard-card">
+
+            <div class="section-header">
+
+                <div>
+
+                    <h2>Supplier Details</h2>
+
+                    <p>
+                        Enter supplier information
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 28px !important;">
+                <div class="form-group" style="min-width:0;"><label>Supplier Name <span class="required-star">*</span></label><input id="supplierName" type="text" placeholder="Enter supplier name" required oninput="suggestPurchaseSuppliers()" autocomplete="off" style="width:100%;box-sizing:border-box;"><div id="purchaseSupplierSuggestions" style="position:relative;z-index:20;"></div></div>
+                <div class="form-group" style="min-width:0;"><label>Phone <span class="required-star">*</span></label><input id="supplierPhone" type="text" placeholder="Enter phone number" required style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group" style="min-width:0;"><label>Landline</label><input id="supplierLandline" type="text" placeholder="Enter landline" style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group" style="min-width:0;"><label>Email <span class="required-star">*</span></label><input id="supplierEmail" type="email" placeholder="supplier@example.com" required style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group" style="min-width:0;"><label>Fax</label><input id="supplierFax" type="text" placeholder="Enter fax" style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group" style="min-width:0;"><label>GST <span class="required-star">*</span></label><input id="supplierGst" type="text" placeholder="Enter GST" required style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group" style="min-width:0;"><label>Street <span class="required-star">*</span></label><input id="supplierStreet" type="text" placeholder="Street" required style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group" style="min-width:0;"><label>Door Number <span class="required-star">*</span></label><input id="supplierDoorNumber" type="text" placeholder="Door number" required style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group" style="min-width:0;"><label>Village</label><input id="supplierVillage" type="text" placeholder="Village" style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group" style="min-width:0;"><label>District <span class="required-star">*</span></label><input id="supplierDistrict" type="text" placeholder="District" required style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group" style="min-width:0;"><label>City <span class="required-star">*</span></label><input id="supplierCity" type="text" placeholder="City" required style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group" style="min-width:0;"><label>Pincode <span class="required-star">*</span></label><input id="supplierPincode" type="text" placeholder="Pincode" required style="width:100%;box-sizing:border-box;"></div>
+                <div class="form-group" style="min-width:0;"><label>Country <span class="required-star">*</span></label><input id="supplierCountry" type="text" value="India" placeholder="Country" list="supplierCountryList" required style="width:100%;box-sizing:border-box;"><datalist id="supplierCountryList"></datalist></div>
+                <div class="form-group" style="min-width:0;"><label>Invoice Number <span class="required-star">*</span></label><input id="purchaseInvoiceNumber" type="text" placeholder="Supplier invoice number" required style="width:100%;box-sizing:border-box;"></div>
+            </div>
+
+        </div>
+
+
+        <!-- SUPPLIER FILE IMPORT -->
+
+        <div class="dashboard-card">
+
+            <div class="section-header">
+
+                <div>
+
+                    <h2>Supplier Invoice File</h2>
+
+                    <p>
+                        Select a PDF, Excel, CSV or text invoice file, then import the data
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="upload-area">
+
+                <div class="upload-icon">
+                    📄
+                </div>
+
+                <h3>
+                    Select Supplier Invoice File
+                </h3>
+
+                <p>
+                    Supported: PDF, Excel (.xlsx/.xls), CSV and TXT
+                </p>
+
+                <input
+                    type="file"
+                    id="supplierPdf"
+                    accept=".pdf,.xlsx,.xls,.csv,.txt">
+
+                <button
+                    class="secondary-btn"
+                    type="button"
+                    onclick="readSupplierFile()">
+
+                    Import File
+
+                </button>
+
+                <button
+                    id="importPurchaseBtn"
+                    class="primary-btn"
+                    type="button"
+                    onclick="importPDFPurchase()"
+                    style="display:none;margin-left:10px;">
+                    Import Purchase
+                </button>
+
+            </div>
+
+
+            <div
+                id="pdfResult"
+                class="pdf-result"
+                style="display:none;">
+
+                <h3>Extracted File Details</h3>
+
+                <pre id="pdfText"></pre>
+
+            </div>
+
+        </div>
+
+
+        <!-- PURCHASE PRODUCT -->
+
+        <div class="dashboard-card">
+
+            <div class="section-header">
+                <div>
+                    <h2>Purchase Products</h2>
+                    <p>Add one or more purchased products and increase stock</p>
+                </div>
+                <div style="font-weight:600;">Products: <span id="purchaseProductCount">0</span></div>
+            </div>
+
+            <div id="purchaseProductRows"></div>
+
+            <div class="form-actions" style="margin-top:12px;">
+                <button type="button" class="secondary-btn" onclick="addPurchaseProductRow()">
+                    + Add Product
+                </button>
+                <strong style="margin-left:auto;">Total: <span id="purchaseGrandTotal">₹0.00</span></strong>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="secondary-btn" onclick="clearPurchaseForm()">
+                    Clear
+                </button>
+                <button type="button" class="primary-btn" onclick="savePurchase()">
+                    Save Purchase
+                </button>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- SUPPLIER PAGE -->
+    <section id="supplierPage" class="page">
+        <div class="page-toolbar"><div><h2>Suppliers</h2><p>View supplier details and purchase history</p></div></div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;">
+            <div class="search-box" style="flex:1;min-width:260px;margin-bottom:0;"><span>🔍</span><input id="supplierSearch" type="text" placeholder="Search supplier name..." oninput="loadSuppliers()" list="supplierSuggestionList"><datalist id="supplierSuggestionList"></datalist></div>
+            <select id="supplierSort" onchange="renderSupplierList()" style="min-width:180px;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;"><option value="none">Sort: None</option><option value="name">Sort by Name</option><option value="purchases">Sort by Purchase Count</option><option value="city">Sort by City</option></select><button type="button" class="secondary-btn" onclick="resetSupplierControls()">Reset</button>
+        </div>
+        <div class="dashboard-card"><div class="table-wrapper"><table style="min-width:900px;"><thead><tr><th>#</th><th>Supplier</th><th>Phone</th><th>Email</th><th>City</th><th>Purchases</th><th>Action</th></tr></thead><tbody id="suppliersTable"><tr><td colspan="7" class="loading">Loading suppliers...</td></tr></tbody></table></div></div>
+        <div id="supplierDetailsSection" style="margin-top:20px;"></div>
+    </section>
+
+    <!-- CUSTOMER PAGE -->
+    <section id="customerPage" class="page">
+        <div class="page-toolbar"><div><h2>Customers</h2><p>View customers and date-wise purchase history</p></div></div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;">
+            <div class="search-box" style="flex:1;min-width:260px;margin-bottom:0;"><span>🔍</span><input id="customerSearch" type="text" placeholder="Search customer name..." oninput="loadCustomers()" list="customerSuggestionList"><datalist id="customerSuggestionList"></datalist></div>
+            <select id="customerSort" onchange="renderCustomerList()" style="min-width:180px;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;"><option value="none">Sort: None</option><option value="name">Sort by Name</option><option value="purchases">Sort by Purchases</option><option value="date">Sort by Last Purchase</option></select>
+            <select id="customerFilter" onchange="renderCustomerList()" style="min-width:160px;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;"><option value="all">All Types</option><option value="DIRECT">Direct</option><option value="INDIRECT">Indirect</option></select><button type="button" class="secondary-btn" onclick="resetCustomerControls()">Reset</button>
+        </div>
+        <div class="dashboard-card"><div class="table-wrapper"><table style="min-width:900px;"><thead><tr><th>#</th><th>Customer</th><th>Phone</th><th>Type</th><th>Purchases</th><th>Last Purchase</th><th>Action</th></tr></thead><tbody id="customersTable"><tr><td colspan="7" class="loading">Loading customers...</td></tr></tbody></table></div></div>
+        <div id="customerDetailsSection" style="margin-top:20px;"></div>
+    </section>
+
+</main>
+
+
+<!-- =====================================================
+     NEW PDF PRODUCTS MODAL
+====================================================== -->
+<div id="newProductsModal" class="modal">
+    <div class="modal-content" style="max-width:900px;">
+        <div class="modal-header">
+            <div>
+                <h2>New Products Detected</h2>
+                <p>These products were found in the supplier invoice file but are not in your inventory.</p>
+            </div>
+            <button class="close-btn" onclick="closeNewProductsModal()">×</button>
+        </div>
+        <div id="newProductsList"></div>
+        <div class="form-actions">
+            <button type="button" class="secondary-btn" onclick="continueWithExistingProducts()">Continue With Existing Products</button>
+            <button type="button" class="primary-btn" onclick="createNewPDFProducts()">Create New Products & Continue</button>
+        </div>
+    </div>
+</div>
+
+<!-- =====================================================
+     PURCHASE IMPORT REVIEW MODAL
+====================================================== -->
+<div id="purchaseImportModal" class="modal">
+    <div class="modal-content" style="max-width:1100px;">
+        <div class="modal-header">
+            <div>
+                <h2>Import Purchase</h2>
+                <p>Review stock changes before importing the supplier invoice.</p>
+            </div>
+            <button class="close-btn" onclick="closePurchaseImportModal()">×</button>
+        </div>
+        <div style="margin-bottom:10px;">Products: <strong id="importProductCount">0</strong> &nbsp; | &nbsp; Total: <strong id="importGrandTotal">₹0.00</strong></div>
+        <div id="purchaseImportList"></div>
+        <div class="form-actions">
+            <button type="button" class="secondary-btn" onclick="closePurchaseImportModal()">Cancel</button>
+            <button type="button" class="primary-btn" onclick="finalImportPurchase()">Final Import</button>
+        </div>
+    </div>
+</div>
+
+<!-- =====================================================
+     ADD PRODUCT MODAL
+====================================================== -->
+
+<div
+    id="productModal"
+    class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+
+            <div>
+
+                <h2>Add Product</h2>
+
+                <p>
+                    Add a new product to inventory
+                </p>
+
+            </div>
+
+            <button
+                class="close-btn"
+                onclick="closeProductModal()">
+
+                ×
+
+            </button>
+
+        </div>
+
+
+        <form id="productForm">
+
+            <div class="form-group">
+
+                <label>Product Name <span class="required-star">*</span></label>
+
+                <input
+                    type="text"
+                    id="productName"
+                    required
+                    placeholder="Example: PVC Pipe">
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Product Type</label>
+
+                <input
+                    type="text"
+                    id="productType"
+                    placeholder="Example: Plumbing">
+
+            </div>
+
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label>Quantity <span class="required-star">*</span></label>
+
+                    <input
+                        type="number"
+                        id="productQuantity"
+                        min="0"
+                        value="0"
+                        required>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Purchase Price <span class="required-star">*</span></label>
+
+                    <input
+                        type="number"
+                        id="productPurchasePrice"
+                        min="0"
+                        step="0.01"
+                        required
+                        placeholder="0.00">
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Sale Price <span class="required-star">*</span></label>
+
+                    <input
+                        type="number"
+                        id="productSalePrice"
+                        min="0"
+                        step="0.01"
+                        required
+                        placeholder="0.00">
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Discount</label>
+
+                    <input
+                        type="number"
+                        id="productDiscount"
+                        min="0"
+                        step="0.01"
+                        value="0"
+                        placeholder="0.00">
+
+                </div>
+
+            </div>
+
+
+            <div class="form-actions">
+
+                <button
+                    type="button"
+                    class="secondary-btn"
+                    onclick="closeProductModal()">
+
+                    Cancel
+
+                </button>
+
+
+                <button
+                    type="submit"
+                    class="primary-btn">
+
+                    Save Product
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+     NOTIFICATION
+====================================================== -->
+
+<div
+    id="notification"
+    class="notification">
+
+    <span id="notificationMessage"></span>
+
+</div>
+
+
+<!-- =====================================================
+     JAVASCRIPT
+====================================================== -->
+
+<script src="app.js"></script>
+
+</body>
+</html>

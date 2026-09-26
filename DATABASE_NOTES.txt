@@ -1,0 +1,20 @@
+SALES MANAGEMENT EXTENSION
+
+On backend startup, SchemaInitializer checks the existing hardware_store database and adds only the new optional columns required by the Supplier/Customer features. Existing tables and data are preserved.
+
+Supplier columns added when missing:
+landline, email, fax, gst, street, door_number, village, district, city, pincode, country
+
+Purchase column added when missing:
+purchase_date
+
+Customer columns added when missing:
+email, gst
+
+The application does not replace the existing database or delete existing data.
+
+EXCEL MULTI-SUPPLIER IMPORT
+For automatic multiple-supplier detection, the Excel/CSV header should contain columns such as:
+Supplier Name, Phone, Landline, Email, Fax, GST, Street, Door Number, Village, District, City, Pincode, Country, Invoice Number, Purchase Date, Product Name, Product Type, Quantity, Unit Price, Total
+
+Each product row can belong to a different supplier. The importer groups rows by Supplier Name and imports each supplier purchase separately.
