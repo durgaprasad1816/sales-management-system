@@ -370,104 +370,107 @@ public class SalesService {
 
     public String getSalesHistory(String date) {
 
-        StringBuilder json = new StringBuilder();
+    StringBuilder json = new StringBuilder();
 
-        try (Connection connection =
-                     DatabaseConfig.getConnection()) {
+    try (Connection connection =
+                 DatabaseConfig.getConnection()) {
 
-            String sql =
-                    "SELECT s.sale_id, c.customer_name, " +
-                    "c.customer_type, c.phone, c.email, c.gst, " +
-                    "s.subtotal, s.discount, s.gst, " +
-                    "s.final_total, s.sale_date " +
-                    "FROM sales s " +
-                    "LEFT JOIN customers c " +
-                    "ON s.customer_id = c.customer_id ";
+        String sql =
+                "SELECT s.sale_id, c.customer_name, " +
+                "c.customer_type, c.phone, c.email, c.gst, " +
+                "s.subtotal, s.discount, s.gst, " +
+                "s.final_total, s.sale_date " +
+                "FROM sales s " +
+                "LEFT JOIN customers c " +
+                "ON s.customer_id = c.customer_id ";
+
+        if (date != null && !date.isBlank()) {
+            sql += "WHERE DATE(s.sale_date) = ? ";
+        }
+
+        sql += "ORDER BY s.sale_date DESC, s.sale_id DESC";
+
+        try (PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
 
             if (date != null && !date.isBlank()) {
-                sql += "WHERE DATE(s.sale_date) = ? ";
+                statement.setString(1, date);
             }
 
-            sql += "ORDER BY s.sale_date DESC, s.sale_id DESC";
+            try (ResultSet result =
+                         statement.executeQuery()) {
 
-            try (PreparedStatement statement =
-                         connection.prepareStatement(sql)) {
+                boolean first = true;
 
-                if (date != null && !date.isBlank()) {
-                    statement.setString(1, date);
-                }
+                while (result.next()) {
 
-                try (ResultSet result =
-                             statement.executeQuery()) {
-
-                    boolean first = true;
-
-                    while (result.next()) {
-
-                        if (!first) {
-                            json.append(",");
-                        }
-
-                        first = false;
-
-                        json.append("{");
-
-                        json.append("\"saleId\":")
-                                .append(result.getInt("sale_id"))
-                                .append(",");
-
-                        json.append("\"customerName\":\"")
-                                .append(escapeJson(
-                                        result.getString("customer_name")))
-                                .append("\",");
-
-                        json.append("\"customerType\":\"")
-                                .append(escapeJson(
-                                        result.getString("customer_type")))
-                                .append("\",");
-
-                        json.append("\"customerPhone\":\"")
-                                .append(escapeJson(
-                                        result.getString("phone")))
-                                .append("\",");
-
-                        json.append("\"subtotal\":")
-                                .append(result.getDouble("subtotal"))
-                                .append(",");
-
-                        json.append("\"discount\":")
-                                .append(result.getDouble("discount"))
-                                .append(",");
-
-                        json.append("\"gst\":")
-                                .append(result.getDouble("gst"))
-                                .append(",");
-
-                        json.append("\"finalTotal\":")
-                                .append(result.getDouble("final_total"))
-                                .append(",");
-
-                        json.append("\"saleDate\":\"")
-                                .append(escapeJson(
-                                        String.valueOf(
-                                                result.getTimestamp("sale_date"))))
-                                .append("\"");
-
-                        json.append("}");
+                    if (!first) {
+                        json.append(",");
                     }
+
+                    first = false;
+
+                    json.append("{");
+
+                    json.append("\"saleId\":")
+                            .append(result.getInt("sale_id"))
+                            .append(",");
+
+                    json.append("\"customerName\":\"")
+                            .append(escapeJson(
+                                    result.getString("customer_name")))
+                            .append("\",");
+
+                    json.append("\"customerType\":\"")
+                            .append(escapeJson(
+                                    result.getString("customer_type")))
+                            .append("\",");
+
+                    json.append("\"customerPhone\":\"")
+                            .append(escapeJson(
+                                    result.getString("phone")))
+                            .append("\",");
+
+                    // Column 7 = s.subtotal
+                    json.append("\"subtotal\":")
+                            .append(result.getDouble(7))
+                            .append(",");
+
+                    // Column 8 = s.discount
+                    json.append("\"discount\":")
+                            .append(result.getDouble(8))
+                            .append(",");
+
+                    // Column 9 = s.gst
+                    json.append("\"gst\":")
+                            .append(result.getDouble(9))
+                            .append(",");
+
+                    // Column 10 = s.final_total
+                    json.append("\"finalTotal\":")
+                            .append(result.getDouble(10))
+                            .append(",");
+
+                    json.append("\"saleDate\":\"")
+                            .append(escapeJson(
+                                    String.valueOf(
+                                            result.getTimestamp("sale_date"))))
+                            .append("\"");
+
+                    json.append("}");
                 }
             }
-
-            return "{\"ok\":true,\"sales\":[" + json + "]}";
-
-        } catch (Exception e) {
-
-            e.printStackTrace();
-
-            return errorJson(e.getMessage());
         }
-    }
 
+        return "{\"ok\":true,\"sales\":[" + json + "]}";
+
+    } catch (Exception e) {
+
+        e.printStackTrace();
+
+        return errorJson(e.getMessage());
+    }
+}
     // =====================================================
     // GET SALE DETAILS
     // =====================================================
