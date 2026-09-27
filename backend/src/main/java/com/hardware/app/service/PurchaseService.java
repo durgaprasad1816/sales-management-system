@@ -1033,122 +1033,127 @@ public class PurchaseService {
     // READ GENERIC SUPPLIER FILE
     // =====================================================
 
-    public String readSupplierFile(
-            HttpExchange exchange
-    ) throws IOException {
+ public String readSupplierFile(
+        HttpExchange exchange
+) throws IOException {
 
-        MultipartFileData file =
-                readMultipartFile(exchange);
+    MultipartFileData file =
+            readMultipartFile(exchange);
 
-        if (
-                file == null ||
-                file.bytes == null ||
-                file.bytes.length == 0
-        ) {
-            return errorJson(
-                    "Supplier file not received"
-            );
-        }
+    if (
+            file == null ||
+            file.bytes == null ||
+            file.bytes.length == 0
+    ) {
+        return errorJson(
+                "Supplier file not received"
+        );
+    }
 
-        String fileName =
-                file.fileName == null
-                        ? "supplier-file"
-                        : file.fileName;
+    String fileName =
+            file.fileName == null
+                    ? "supplier-file"
+                    : file.fileName;
 
-        String lowerName =
-                fileName.toLowerCase();
 
-        try {
+    String lowerName =
+            fileName.toLowerCase();
 
-            String text;
-            String fileType;
+    try {
 
-            if (lowerName.endsWith(".pdf")) {
+        String text;
+        String fileType;
 
-                fileType = "PDF";
+        if (lowerName.endsWith(".pdf")) {
 
-                try (
-                        PDDocument document =
-                                Loader.loadPDF(file.bytes)
-                ) {
+            fileType = "PDF";
 
-                    PDFTextStripper stripper =
-                            new PDFTextStripper();
-
-                    text =
-                            stripper.getText(
-                                    document
-                            );
-                }
-
-            } else if (
-                    lowerName.endsWith(".xlsx") ||
-                    lowerName.endsWith(".xls")
+            try (
+                    PDDocument document =
+                            Loader.loadPDF(file.bytes)
             ) {
 
-                fileType =
-                        lowerName.endsWith(".xlsx")
-                                ? "XLSX"
-                                : "XLS";
+                PDFTextStripper stripper =
+                        new PDFTextStripper();
 
                 text =
-                        readExcelFile(
-                                file.bytes
+                        stripper.getText(
+                                document
                         );
-
-            } else if (lowerName.endsWith(".csv")) {
-
-                fileType = "CSV";
-
-                text =
-                        new String(
-                                file.bytes,
-                                StandardCharsets.UTF_8
-                        );
-
-            } else if (lowerName.endsWith(".txt")) {
-
-                fileType = "TXT";
-
-                text =
-                        new String(
-                                file.bytes,
-                                StandardCharsets.UTF_8
-                        );
-
-            } else {
-
-                return errorJson(
-                        "Unsupported file type. Supported files: PDF, XLSX, XLS, CSV and TXT."
-                );
             }
 
-            return
-                    "{"
-                    + "\"ok\":true,"
-                    + "\"fileType\":\""
-                    + escapeJson(fileType)
-                    + "\","
-                    + "\"fileName\":\""
-                    + escapeJson(fileName)
-                    + "\","
-                    + "\"text\":\""
-                    + escapeJson(text)
-                    + "\""
-                    + "}";
+        } else if (
+                lowerName.endsWith(".xlsx") ||
+                lowerName.endsWith(".xls")
+        ) {
 
-        } catch (Throwable e) {
+            fileType =
+                    lowerName.endsWith(".xlsx")
+                            ? "XLSX"
+                            : "XLS";
 
-            e.printStackTrace();
+            text =
+                    readExcelFile(
+                            file.bytes
+                    );
+
+        } else if (lowerName.endsWith(".csv")) {
+
+            fileType = "CSV";
+
+            text =
+                    new String(
+                            file.bytes,
+                            StandardCharsets.UTF_8
+                    );
+
+        } else if (lowerName.endsWith(".txt")) {
+
+            fileType = "TXT";
+
+            text =
+                    new String(
+                            file.bytes,
+                            StandardCharsets.UTF_8
+                    );
+
+        } else {
 
             return errorJson(
-                    "Could not read "
-                    + fileName
-                    + ": "
-                    + (e.getMessage() == null ? e.getClass().getName() : e.getMessage())
+                    "Unsupported file type. Supported files: PDF, XLSX, XLS, CSV and TXT."
             );
         }
+
+        return
+                "{"
+                + "\"ok\":true,"
+                + "\"fileType\":\""
+                + escapeJson(fileType)
+                + "\","
+                + "\"fileName\":\""
+                + escapeJson(fileName)
+                + "\","
+                + "\"text\":\""
+                + escapeJson(text)
+                + "\""
+                + "}";
+
+    } catch (Throwable e) {
+
+        e.printStackTrace();
+
+        return errorJson(
+                "Could not read "
+                + fileName
+                + ": "
+                + (
+                    e.getMessage() == null
+                            ? e.getClass().getName()
+                            : e.getMessage()
+                )
+        );
     }
+}
 
     // =====================================================
     // READ EXCEL WORKBOOK
@@ -1323,128 +1328,211 @@ public class PurchaseService {
         }
     }
 
-    private MultipartFileData readMultipartFile(
-            HttpExchange exchange
-    ) throws IOException {
+private MultipartFileData readMultipartFile(
+        HttpExchange exchange
+) throws IOException {
 
-        String contentType =
-                exchange.getRequestHeaders()
-                        .getFirst(
-                                "Content-Type"
-                        );
+    String contentType =
+            exchange.getRequestHeaders()
+                    .getFirst("Content-Type");
 
-        if (
-                contentType == null ||
-                !contentType.contains(
-                        "multipart/form-data"
-                )
-        ) {
-            throw new IOException(
-                    "Request is not multipart/form-data"
-            );
-        }
+    if (contentType == null ||
+            !contentType.toLowerCase()
+                    .contains("multipart/form-data")) {
 
-        String boundary =
-                getBoundary(
-                        contentType
-                );
-
-        if (boundary == null) {
-            throw new IOException(
-                    "Multipart boundary not found"
-            );
-        }
-
-        byte[] body =
-                exchange.getRequestBody()
-                        .readAllBytes();
-
-        byte[] boundaryBytes =
-                (
-                        "--" + boundary
-                ).getBytes(
-                        StandardCharsets.ISO_8859_1
-                );
-
-        int start =
-                indexOf(
-                        body,
-                        boundaryBytes,
-                        0
-                );
-
-        if (start < 0) {
-            return null;
-        }
-
-        int headerEnd =
-                indexOf(
-                        body,
-                        new byte[]{
-                                '\r',
-                                '\n',
-                                '\r',
-                                '\n'
-                        },
-                        start
-                );
-
-        if (headerEnd < 0) {
-            return null;
-        }
-
-        String headers =
-                new String(
-                        body,
-                        start,
-                        headerEnd - start,
-                        StandardCharsets.ISO_8859_1
-                );
-
-        String fileName =
-                extractMultipartFileName(
-                        headers
-                );
-
-        int dataStart =
-                headerEnd + 4;
-
-        int nextBoundary =
-                indexOf(
-                        body,
-                        boundaryBytes,
-                        dataStart
-                );
-
-        if (nextBoundary < 0) {
-            return null;
-        }
-
-        int dataEnd =
-                nextBoundary - 2;
-
-        if (dataEnd <= dataStart) {
-            return null;
-        }
-
-        byte[] fileBytes =
-                new byte[
-                        dataEnd - dataStart
-                ];
-
-        System.arraycopy(
-                body,
-                dataStart,
-                fileBytes,
-                0,
-                fileBytes.length
-        );
-
-        return new MultipartFileData(
-                fileName,
-                fileBytes
+        throw new IOException(
+                "Request is not multipart/form-data"
         );
     }
+
+    String boundary = getBoundary(contentType);
+
+    if (boundary == null || boundary.isBlank()) {
+
+        throw new IOException(
+                "Multipart boundary not found"
+        );
+    }
+
+    byte[] body =
+            exchange.getRequestBody()
+                    .readAllBytes();
+
+    if (body.length == 0) {
+
+        throw new IOException(
+                "Multipart request body is empty"
+        );
+    }
+
+    byte[] boundaryBytes =
+            ("--" + boundary)
+                    .getBytes(
+                            StandardCharsets.ISO_8859_1
+                    );
+
+    /*
+     * Find the first multipart boundary.
+     */
+    int boundaryStart =
+            indexOf(
+                    body,
+                    boundaryBytes,
+                    0
+            );
+
+    if (boundaryStart < 0) {
+
+        throw new IOException(
+                "Multipart boundary not found in request body"
+        );
+    }
+
+    /*
+     * Find the end of the multipart headers.
+     */
+    byte[] headerSeparator =
+            new byte[]{
+                    '\r', '\n',
+                    '\r', '\n'
+            };
+
+    int headerEnd =
+            indexOf(
+                    body,
+                    headerSeparator,
+                    boundaryStart
+            );
+
+    if (headerEnd < 0) {
+
+        throw new IOException(
+                "Multipart headers are incomplete"
+        );
+    }
+
+    String headers =
+            new String(
+                    body,
+                    boundaryStart,
+                    headerEnd - boundaryStart,
+                    StandardCharsets.ISO_8859_1
+            );
+
+    String fileName =
+            extractMultipartFileName(headers);
+
+    /*
+     * File data starts immediately after:
+     *
+     * \r\n\r\n
+     */
+    int dataStart =
+            headerEnd + headerSeparator.length;
+
+    /*
+     * The next part boundary is preceded by CRLF.
+     *
+     * Search for:
+     *
+     * \r\n--boundary
+     *
+     * instead of searching for --boundary alone.
+     *
+     * This prevents binary Excel data from being
+     * incorrectly interpreted as a multipart boundary.
+     */
+    byte[] nextBoundaryMarker =
+            new byte[
+                    2 + boundaryBytes.length
+            ];
+
+    nextBoundaryMarker[0] = '\r';
+    nextBoundaryMarker[1] = '\n';
+
+    System.arraycopy(
+            boundaryBytes,
+            0,
+            nextBoundaryMarker,
+            2,
+            boundaryBytes.length
+    );
+
+    int nextBoundary =
+            indexOf(
+                    body,
+                    nextBoundaryMarker,
+                    dataStart
+            );
+
+    if (nextBoundary < 0) {
+
+        throw new IOException(
+                "End of uploaded file could not be found"
+        );
+    }
+
+    /*
+     * Remove only the CRLF immediately before
+     * the multipart boundary.
+     */
+    int dataEnd =
+            nextBoundary;
+
+    if (dataEnd <= dataStart) {
+
+        throw new IOException(
+                "Uploaded file contains no data"
+        );
+    }
+
+    int fileLength =
+            dataEnd - dataStart;
+
+    byte[] fileBytes =
+            new byte[fileLength];
+
+    System.arraycopy(
+            body,
+            dataStart,
+            fileBytes,
+            0,
+            fileLength
+    );
+
+    /*
+     * Basic validation for Excel files.
+     *
+     * XLSX files are ZIP containers and normally
+     * start with PK.
+     *
+     * XLS files normally start with D0 CF 11 E0.
+     *
+     * We do not reject other file types here.
+     */
+    if (fileName != null) {
+
+        String lowerName =
+                fileName.toLowerCase();
+
+        if (lowerName.endsWith(".xlsx")) {
+
+            if (fileBytes.length < 4 ||
+                    fileBytes[0] != 'P' ||
+                    fileBytes[1] != 'K') {
+
+                throw new IOException(
+                        "Uploaded XLSX file data is invalid or corrupted"
+                );
+            }
+        }
+    }
+
+    return new MultipartFileData(
+            fileName,
+            fileBytes
+    );
+}
 
     private String extractMultipartFileName(
             String headers

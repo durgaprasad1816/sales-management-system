@@ -79,15 +79,20 @@
 
                             <createDependencyReducedPom>false</createDependencyReducedPom>
 
-                            <transformers>
+                       <transformers>
 
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>
-                                        com.hardware.app.Main
-                                    </mainClass>
-                                </transformer>
+    <!-- Merge Java service-provider files.
+         Required by Apache POI for XLSX support. -->
+    <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
 
-                            </transformers>
+    <!-- Keep Main-Class in the executable JAR. -->
+    <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+        <mainClass>
+            com.hardware.app.Main
+        </mainClass>
+    </transformer>
+
+</transformers>
 
                         </configuration>
                     </execution>
