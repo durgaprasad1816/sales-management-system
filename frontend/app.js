@@ -117,31 +117,56 @@ year: "numeric"
 API REQUEST
 ========================================================= */
 async function apiRequest(url, options = {}) {
-try {
-const response =
-await fetch(url, options);
-if (!response.ok) {
-throw new Error(
-"HTTP Error " + response.status
-);
-}
-const contentType =
-response.headers.get("content-type");
-if (
-contentType &&
-contentType.includes("application/json")
-) {
-return await response.json();
-}
-return await response.text();
-} catch (error) {
-console.error("API Error:", error);
-showNotification(
-"Backend connection failed. Make sure the Java server is running.",
-"error"
-);
-throw error;
-}
+
+    // Render Java backend
+    const API_BASE_URL =
+        "https://sales-management-system-rs5b.onrender.com";
+
+    try {
+
+        // If the URL is already absolute, use it directly.
+        // Otherwise, connect it to the Render backend.
+        const requestUrl =
+            url.startsWith("http://") ||
+            url.startsWith("https://")
+                ? url
+                : API_BASE_URL + url;
+
+        const response =
+            await fetch(requestUrl, options);
+
+        if (!response.ok) {
+            throw new Error(
+                "HTTP Error " + response.status
+            );
+        }
+
+        const contentType =
+            response.headers.get("content-type");
+
+        if (
+            contentType &&
+            contentType.includes("application/json")
+        ) {
+            return await response.json();
+        }
+
+        return await response.text();
+
+    } catch (error) {
+
+        console.error(
+            "API Error:",
+            error
+        );
+
+        showNotification(
+            "Backend connection failed. Please try again.",
+            "error"
+        );
+
+        throw error;
+    }
 }
 /* =========================================================
 NOTIFICATION
