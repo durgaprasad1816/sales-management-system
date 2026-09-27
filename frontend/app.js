@@ -2390,7 +2390,9 @@ renderPDFPurchaseReview();
  * /data/products failure cannot block the import popup.
  */
 try {
-const productResponse = await fetch("/data/products");
+const productResponse = await fetch(
+    "https://sales-management-system-rs5b.onrender.com/data/products"
+);
 if (productResponse.ok) {
 const productData = await productResponse.json();
 if (productData && productData.ok !== false) {

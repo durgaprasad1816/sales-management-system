@@ -4,12 +4,12 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 
+import com.hardware.app.service.CustomerService;
 import com.hardware.app.service.DashboardService;
 import com.hardware.app.service.ProductService;
 import com.hardware.app.service.PurchaseService;
 import com.hardware.app.service.SalesService;
 import com.hardware.app.service.SupplierService;
-import com.hardware.app.service.CustomerService;
 import com.hardware.app.util.HttpUtil;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -129,14 +129,30 @@ public class HardwareHttpServer {
         // ==============================
         // SUPPLIERS
         // ==============================
-        server.createContext("/data/suppliers", this::handleSuppliers);
-        server.createContext("/data/suppliers/details", this::handleSupplierDetails);
+
+        server.createContext(
+                "/data/suppliers",
+                this::handleSuppliers
+        );
+
+        server.createContext(
+                "/data/suppliers/details",
+                this::handleSupplierDetails
+        );
 
         // ==============================
         // CUSTOMERS
         // ==============================
-        server.createContext("/data/customers", this::handleCustomers);
-        server.createContext("/data/customers/details", this::handleCustomerDetails);
+
+        server.createContext(
+                "/data/customers",
+                this::handleCustomers
+        );
+
+        server.createContext(
+                "/data/customers/details",
+                this::handleCustomerDetails
+        );
     }
 
     // =====================================================
@@ -488,10 +504,11 @@ public class HardwareHttpServer {
                     exchange.getRequestURI()
                             .getQuery();
 
-            String date = getQueryParameter(
-                    query,
-                    "date"
-            );
+            String date =
+                    getQueryParameter(
+                            query,
+                            "date"
+                    );
 
             String result =
                     salesService.getSalesHistory(date);
@@ -803,6 +820,16 @@ public class HardwareHttpServer {
             HttpExchange exchange
     ) throws IOException {
 
+        /*
+         * Handle browser CORS preflight request.
+         *
+         * Browser sends OPTIONS before POST when calling
+         * the Render backend from the Vercel frontend.
+         */
+        if (handleCorsPreflight(exchange)) {
+            return;
+        }
+
         if (!exchange.getRequestMethod()
                 .equalsIgnoreCase("POST")) {
 
@@ -843,33 +870,239 @@ public class HardwareHttpServer {
         }
     }
 
-
     // =====================================================
     // SUPPLIERS
     // =====================================================
-    private void handleSuppliers(HttpExchange exchange) throws IOException {
-        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
-        try { String q=exchange.getRequestURI().getQuery(); String search=getQueryParameter(q,"search"); sendJson(exchange,200,supplierService.getSuppliers(search)); }
-        catch(Exception e){ e.printStackTrace(); sendJson(exchange,500,errorJson(e)); }
+
+    private void handleSuppliers(
+            HttpExchange exchange
+    ) throws IOException {
+
+        if (!exchange.getRequestMethod()
+                .equalsIgnoreCase("GET")) {
+
+            sendJson(
+                    exchange,
+                    405,
+                    "{\"ok\":false,\"error\":\"Method Not Allowed\"}"
+            );
+
+            return;
+        }
+
+        try {
+
+            String q =
+                    exchange.getRequestURI()
+                            .getQuery();
+
+            String search =
+                    getQueryParameter(
+                            q,
+                            "search"
+                    );
+
+            sendJson(
+                    exchange,
+                    200,
+                    supplierService.getSuppliers(search)
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            sendJson(
+                    exchange,
+                    500,
+                    errorJson(e)
+            );
+        }
     }
-    private void handleSupplierDetails(HttpExchange exchange) throws IOException {
-        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
-        try { int id=getQueryInt(exchange.getRequestURI().getQuery(),"id"); sendJson(exchange,200,supplierService.getSupplierDetails(id)); }
-        catch(Exception e){ e.printStackTrace(); sendJson(exchange,500,errorJson(e)); }
+
+    private void handleSupplierDetails(
+            HttpExchange exchange
+    ) throws IOException {
+
+        if (!exchange.getRequestMethod()
+                .equalsIgnoreCase("GET")) {
+
+            sendJson(
+                    exchange,
+                    405,
+                    "{\"ok\":false,\"error\":\"Method Not Allowed\"}"
+            );
+
+            return;
+        }
+
+        try {
+
+            int id =
+                    getQueryInt(
+                            exchange.getRequestURI()
+                                    .getQuery(),
+                            "id"
+                    );
+
+            sendJson(
+                    exchange,
+                    200,
+                    supplierService.getSupplierDetails(id)
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            sendJson(
+                    exchange,
+                    500,
+                    errorJson(e)
+            );
+        }
     }
 
     // =====================================================
     // CUSTOMERS
     // =====================================================
-    private void handleCustomers(HttpExchange exchange) throws IOException {
-        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
-        try { String q=exchange.getRequestURI().getQuery(); String search=getQueryParameter(q,"search"); String phone=getQueryParameter(q,"phone"); sendJson(exchange,200,customerService.getCustomers(search,phone)); }
-        catch(Exception e){ e.printStackTrace(); sendJson(exchange,500,errorJson(e)); }
+
+    private void handleCustomers(
+            HttpExchange exchange
+    ) throws IOException {
+
+        if (!exchange.getRequestMethod()
+                .equalsIgnoreCase("GET")) {
+
+            sendJson(
+                    exchange,
+                    405,
+                    "{\"ok\":false,\"error\":\"Method Not Allowed\"}"
+            );
+
+            return;
+        }
+
+        try {
+
+            String q =
+                    exchange.getRequestURI()
+                            .getQuery();
+
+            String search =
+                    getQueryParameter(
+                            q,
+                            "search"
+                    );
+
+            String phone =
+                    getQueryParameter(
+                            q,
+                            "phone"
+                    );
+
+            sendJson(
+                    exchange,
+                    200,
+                    customerService.getCustomers(
+                            search,
+                            phone
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            sendJson(
+                    exchange,
+                    500,
+                    errorJson(e)
+            );
+        }
     }
-    private void handleCustomerDetails(HttpExchange exchange) throws IOException {
-        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
-        try { int id=getQueryInt(exchange.getRequestURI().getQuery(),"id"); sendJson(exchange,200,customerService.getCustomerDetails(id)); }
-        catch(Exception e){ e.printStackTrace(); sendJson(exchange,500,errorJson(e)); }
+
+    private void handleCustomerDetails(
+            HttpExchange exchange
+    ) throws IOException {
+
+        if (!exchange.getRequestMethod()
+                .equalsIgnoreCase("GET")) {
+
+            sendJson(
+                    exchange,
+                    405,
+                    "{\"ok\":false,\"error\":\"Method Not Allowed\"}"
+            );
+
+            return;
+        }
+
+        try {
+
+            int id =
+                    getQueryInt(
+                            exchange.getRequestURI()
+                                    .getQuery(),
+                            "id"
+                    );
+
+            sendJson(
+                    exchange,
+                    200,
+                    customerService.getCustomerDetails(id)
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            sendJson(
+                    exchange,
+                    500,
+                    errorJson(e)
+            );
+        }
+    }
+
+    // =====================================================
+    // CORS PREFLIGHT
+    // =====================================================
+
+    private boolean handleCorsPreflight(
+            HttpExchange exchange
+    ) throws IOException {
+
+        if ("OPTIONS".equalsIgnoreCase(
+                exchange.getRequestMethod()
+        )) {
+
+            exchange.getResponseHeaders().set(
+                    "Access-Control-Allow-Origin",
+                    "*"
+            );
+
+            exchange.getResponseHeaders().set(
+                    "Access-Control-Allow-Methods",
+                    "GET, POST, OPTIONS"
+            );
+
+            exchange.getResponseHeaders().set(
+                    "Access-Control-Allow-Headers",
+                    "Content-Type"
+            );
+
+            exchange.sendResponseHeaders(
+                    204,
+                    -1
+            );
+
+            exchange.close();
+
+            return true;
+        }
+
+        return false;
     }
 
     // =====================================================
@@ -1014,6 +1247,7 @@ public class HardwareHttpServer {
                 e.getMessage();
 
         if (message == null) {
+
             message =
                     e.getClass()
                             .getSimpleName();
