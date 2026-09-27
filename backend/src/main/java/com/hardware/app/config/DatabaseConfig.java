@@ -6,20 +6,53 @@ import java.sql.SQLException;
 
 public class DatabaseConfig {
 
-    // Change this to YOUR existing database name
+    // =========================================================
+    // AIVEN MYSQL DATABASE CONFIGURATION
+    // =========================================================
+
+    private static final String HOST =
+            "mysql-6d0f1ed-project-9a40.b.aivencloud.com";
+
+    private static final String PORT =
+            "15342";
+
+    private static final String DATABASE =
+            "hardware_store";
+
+    private static final String USER =
+            "avnadmin";
+
+    /*
+     * IMPORTANT:
+     * Do NOT write the Aiven password directly here.
+     *
+     * The password will come from the DB_PASSWORD
+     * environment variable.
+     */
+    private static final String PASSWORD =
+            System.getenv().getOrDefault("DB_PASSWORD", "");
+
+    // =========================================================
+    // MYSQL CONNECTION URL
+    // =========================================================
+
     private static final String URL =
-            "jdbc:mysql://localhost:3306/hardware_store"
-            + "?useSSL=false"
-            + "&serverTimezone=Asia/Kolkata"
-            + "&allowPublicKeyRetrieval=true";
+            "jdbc:mysql://"
+                    + HOST
+                    + ":"
+                    + PORT
+                    + "/"
+                    + DATABASE
+                    + "?useSSL=true"
+                    + "&serverTimezone=Asia/Kolkata"
+                    + "&allowPublicKeyRetrieval=true";
 
-    // MySQL username
-    private static final String USER = "root";
-
-    // Change this to your MySQL password
-    private static final String PASSWORD = "";
+    // =========================================================
+    // GET DATABASE CONNECTION
+    // =========================================================
 
     public static Connection getConnection() throws SQLException {
+
         return DriverManager.getConnection(
                 URL,
                 USER,
@@ -27,20 +60,61 @@ public class DatabaseConfig {
         );
     }
 
+    // =========================================================
+    // TEST DATABASE CONNECTION
+    // =========================================================
+
     public static void main(String[] args) {
+
+        System.out.println(
+                "Attempting to connect to Aiven MySQL..."
+        );
+
+        System.out.println(
+                "Host: " + HOST
+        );
+
+        System.out.println(
+                "Port: " + PORT
+        );
+
+        System.out.println(
+                "Database: " + DATABASE
+        );
+
+        System.out.println(
+                "User: " + USER
+        );
 
         try (Connection connection = getConnection()) {
 
-            if (connection != null) {
+            if (connection != null && !connection.isClosed()) {
+
                 System.out.println(
-                        "MySQL Database Connected Successfully!"
+                        "======================================"
+                );
+
+                System.out.println(
+                        "Aiven MySQL Database Connected Successfully!"
+                );
+
+                System.out.println(
+                        "======================================"
                 );
             }
 
         } catch (SQLException e) {
 
             System.out.println(
-                    "Database Connection Failed!"
+                    "======================================"
+            );
+
+            System.out.println(
+                    "Aiven MySQL Database Connection Failed!"
+            );
+
+            System.out.println(
+                    "======================================"
             );
 
             e.printStackTrace();

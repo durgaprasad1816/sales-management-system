@@ -1,7 +1,7 @@
 package com.hardware.app;
 
-import com.hardware.app.server.HardwareHttpServer;
 import com.hardware.app.config.SchemaInitializer;
+import com.hardware.app.server.HardwareHttpServer;
 
 public class Main {
 
@@ -9,7 +9,9 @@ public class Main {
 
         try {
 
-            int port = 8080;
+            int port = Integer.parseInt(
+                    System.getenv().getOrDefault("PORT", "8080")
+            );
 
             SchemaInitializer.ensure();
 
