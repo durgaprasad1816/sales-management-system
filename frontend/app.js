@@ -1018,6 +1018,20 @@ error?.message || "Product could not be deleted.",
 SALES PAGE
 ========================================================= */
 async function prepareSalesPage() {
+
+// Clear customer details when opening a new sale.
+const customerName = document.getElementById("customerName");
+const customerPhone = document.getElementById("customerPhone");
+const customerEmail = document.getElementById("customerEmail");
+const customerGst = document.getElementById("customerGst");
+const suggestionBox = document.getElementById("salesCustomerSuggestions");
+
+if (customerName) customerName.value = "";
+if (customerPhone) customerPhone.value = "";
+if (customerEmail) customerEmail.value = "";
+if (customerGst) customerGst.value = "";
+if (suggestionBox) suggestionBox.innerHTML = "";
+
 await loadProducts();
 if (!saleItems.length) {
 addSaleRow();
@@ -1410,6 +1424,14 @@ const customerPhone =
 document.getElementById(
 "customerPhone"
 
+)?.value.trim() || "";
+const customerEmail =
+document.getElementById(
+"customerEmail"
+)?.value.trim() || "";
+const customerGst =
+document.getElementById(
+"customerGst"
 )?.value.trim() || "";
 if (!customerName) {
 showNotification(
