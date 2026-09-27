@@ -48,7 +48,10 @@ public class HardwareHttpServer {
         // FRONTEND
         // ==============================
 
-        server.createContext("/", this::handleFrontend);
+        server.createContext(
+                "/",
+                this::handleFrontend
+        );
 
         // ==============================
         // PRODUCTS
@@ -292,6 +295,11 @@ public class HardwareHttpServer {
             HttpExchange exchange
     ) throws IOException {
 
+        // CORS preflight
+        if (handleCorsPreflight(exchange)) {
+            return;
+        }
+
         if (!exchange.getRequestMethod()
                 .equalsIgnoreCase("POST")) {
 
@@ -339,6 +347,11 @@ public class HardwareHttpServer {
     private void handleDeleteProduct(
             HttpExchange exchange
     ) throws IOException {
+
+        // CORS preflight
+        if (handleCorsPreflight(exchange)) {
+            return;
+        }
 
         if (!exchange.getRequestMethod()
                 .equalsIgnoreCase("POST")) {
@@ -438,6 +451,11 @@ public class HardwareHttpServer {
             HttpExchange exchange
     ) throws IOException {
 
+        // CORS preflight
+        if (handleCorsPreflight(exchange)) {
+            return;
+        }
+
         if (!exchange.getRequestMethod()
                 .equalsIgnoreCase("POST")) {
 
@@ -511,7 +529,9 @@ public class HardwareHttpServer {
                     );
 
             String result =
-                    salesService.getSalesHistory(date);
+                    salesService.getSalesHistory(
+                            date
+                    );
 
             sendJson(
                     exchange,
@@ -593,6 +613,11 @@ public class HardwareHttpServer {
     private void handleDeleteSale(
             HttpExchange exchange
     ) throws IOException {
+
+        // CORS preflight
+        if (handleCorsPreflight(exchange)) {
+            return;
+        }
 
         if (!exchange.getRequestMethod()
                 .equalsIgnoreCase("POST")) {
@@ -682,6 +707,11 @@ public class HardwareHttpServer {
             HttpExchange exchange
     ) throws IOException {
 
+        // CORS preflight
+        if (handleCorsPreflight(exchange)) {
+            return;
+        }
+
         if (!exchange.getRequestMethod()
                 .equalsIgnoreCase("POST")) {
 
@@ -730,6 +760,11 @@ public class HardwareHttpServer {
             HttpExchange exchange
     ) throws IOException {
 
+        // CORS preflight
+        if (handleCorsPreflight(exchange)) {
+            return;
+        }
+
         if (!exchange.getRequestMethod()
                 .equalsIgnoreCase("POST")) {
 
@@ -774,6 +809,11 @@ public class HardwareHttpServer {
     private void handleReadPurchaseFile(
             HttpExchange exchange
     ) throws IOException {
+
+        // CORS preflight
+        if (handleCorsPreflight(exchange)) {
+            return;
+        }
 
         if (!exchange.getRequestMethod()
                 .equalsIgnoreCase("POST")) {
@@ -820,12 +860,7 @@ public class HardwareHttpServer {
             HttpExchange exchange
     ) throws IOException {
 
-        /*
-         * Handle browser CORS preflight request.
-         *
-         * Browser sends OPTIONS before POST when calling
-         * the Render backend from the Vercel frontend.
-         */
+        // CORS preflight
         if (handleCorsPreflight(exchange)) {
             return;
         }
@@ -905,7 +940,9 @@ public class HardwareHttpServer {
             sendJson(
                     exchange,
                     200,
-                    supplierService.getSuppliers(search)
+                    supplierService.getSuppliers(
+                            search
+                    )
             );
 
         } catch (Exception e) {
@@ -919,6 +956,10 @@ public class HardwareHttpServer {
             );
         }
     }
+
+    // =====================================================
+    // SUPPLIER DETAILS
+    // =====================================================
 
     private void handleSupplierDetails(
             HttpExchange exchange
@@ -948,7 +989,9 @@ public class HardwareHttpServer {
             sendJson(
                     exchange,
                     200,
-                    supplierService.getSupplierDetails(id)
+                    supplierService.getSupplierDetails(
+                            id
+                    )
             );
 
         } catch (Exception e) {
@@ -1022,6 +1065,10 @@ public class HardwareHttpServer {
         }
     }
 
+    // =====================================================
+    // CUSTOMER DETAILS
+    // =====================================================
+
     private void handleCustomerDetails(
             HttpExchange exchange
     ) throws IOException {
@@ -1050,7 +1097,9 @@ public class HardwareHttpServer {
             sendJson(
                     exchange,
                     200,
-                    customerService.getCustomerDetails(id)
+                    customerService.getCustomerDetails(
+                            id
+                    )
             );
 
         } catch (Exception e) {
