@@ -2280,7 +2280,7 @@ showNotification(
 let result;
 try {
 const response = await fetch(
-"/data/purchases/read-file",
+"https://sales-management-system-rs5b.onrender.com/data/purchases/read-file",
 {
 method: "POST",
 body: formData
