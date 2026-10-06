@@ -1,8 +1,10 @@
-# Java / Maven
+# Maven
 target/
+
+# Java
 *.class
 
-# IDE files
+# IDE
 .vscode/
 .idea/
 *.iml
@@ -15,9 +17,6 @@ target/
 # Logs
 *.log
 
-# OS files
+# OS
 .DS_Store
-Thumbs.db
-
-# Local database/config files
-application-local.properties
+Thumbs.dbGet-ChildItem -Force

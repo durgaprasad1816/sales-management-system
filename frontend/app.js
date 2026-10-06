@@ -43,6 +43,14 @@ description: "Supplier directory and purchase history"
 customer: {
 title: "Customers",
 description: "Customer directory and sales history"
+},
+contractor: {
+title: "Contracters",
+description: "Assign workers and manage contractor service sales"
+},
+worker: {
+title: "Workers",
+description: "Manage workers, fixed payments and work status"
 }
 };
 /* =========================================================
@@ -89,6 +97,12 @@ loadSuppliers();
 }
 if (pageName === "customer") {
 loadCustomers();
+}
+if (pageName === "contractor") {
+prepareContractorPage();
+}
+if (pageName === "worker") {
+loadWorkers();
 }
 }
 function showPageByName(pageName) {
@@ -4543,3 +4557,477 @@ window.selectExistingSalesCustomerById = selectExistingSalesCustomerById;
 window.suggestPurchaseSuppliers = suggestPurchaseSuppliers;
 window.selectExistingPurchaseSupplier = selectExistingPurchaseSupplier;
 window.populateSupplierCountryList = populateSupplierCountryList;
+
+
+/* =========================================================
+CONTRACTERS / WORKERS MODULE
+========================================================= */
+const CONTRACTOR_WORK_TYPES = ["Cleaning","Plumber","Electrical","Carpenter","Painter","Mason","AC Technician","Other"];
+let contractorWorkersPool = [];
+let contractorWorkerRows = [];
+let contractorSuggestionRows = [];
+let contractorHistoryRows = [];
+let contractorHistoryModal = null;
+let currentContractorHistoryContext = { contractorId: 0, date: "" };
+let contractorDirectoryRows = [];
+
+function contractorStatusDot(status) {
+    return "";
+}
+
+async function prepareContractorPage() {
+    await loadContractorWorkersPool();
+    if (!contractorWorkerRows.length) addContractorWorkerRow();
+    else renderContractorWorkerRows();
+    await loadContractorSalesHistory();
+    await loadInProgressContractorAssignments();
+}
+
+async function loadContractorWorkersPool() {
+    try {
+        const data = await apiRequest("/data/workers?sort=name");
+        contractorWorkersPool = Array.isArray(data.workers) ? data.workers : [];
+        renderContractorWorkerRows();
+    } catch (e) {
+        contractorWorkersPool = [];
+    }
+}
+
+function addContractorWorkerRow() {
+    contractorWorkerRows.push({ id: Date.now() + Math.random(), workType: "", workerId: "" });
+    renderContractorWorkerRows();
+}
+
+function removeContractorWorkerRow(id) {
+    contractorWorkerRows = contractorWorkerRows.filter(r => String(r.id) !== String(id));
+    if (!contractorWorkerRows.length) addContractorWorkerRow();
+    else renderContractorWorkerRows();
+}
+
+function workerHasSkill(worker, workType) {
+    if (!worker || !workType) return false;
+    return String(worker.workType || "").split(",").map(v => v.trim().toLowerCase()).includes(String(workType).trim().toLowerCase());
+}
+
+function workersForType(workType) {
+    return contractorWorkersPool.filter(w => {
+        if (!w.active) return false;
+        return workerHasSkill(w, workType);
+    });
+}
+
+function renderContractorWorkerRows() {
+    const box = document.getElementById("contractorWorkerRows");
+    if (!box) return;
+    box.innerHTML = contractorWorkerRows.map((row) => {
+        const selected = contractorWorkersPool.find(w => String(w.workerId) === String(row.workerId));
+        const workerOptions = workersForType(row.workType).map(w => {
+            const disabled = String(w.status).toUpperCase() === "IN_PROGRESS" ? "disabled" : "";
+            const isSelected = String(w.workerId) === String(row.workerId) ? "selected" : "";
+            return `<option value="${Number(w.workerId)}" ${isSelected} ${disabled}>${escapeHtml(w.workerName)}${disabled?" — Assigned":""}</option>`;
+        }).join("");
+        return `<div style="border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:12px;background:#fff;">
+            <div style="display:grid;grid-template-columns:1fr 1.4fr 1fr 1fr 1fr auto;gap:12px;align-items:end;">
+                <div class="form-group"><label>Work Type</label><select onchange="setContractorWorkerType('${row.id}',this.value)"><option value="">Select Type</option>${CONTRACTOR_WORK_TYPES.map(t=>`<option value="${escapeHtml(t)}" ${row.workType===t?'selected':''}>${escapeHtml(t)}</option>`).join("")}</select></div>
+                <div class="form-group"><label>Worker Name</label><select onchange="setContractorWorker('${row.id}',this.value)" ${row.workType?'':'disabled'}><option value="">Select Worker</option>${workerOptions}</select></div>
+                <div class="form-group"><label>Phone</label><input type="text" readonly value="${escapeHtml(selected?.phone||"")}"></div>
+                <div class="form-group"><label>Address</label><input type="text" readonly value="${escapeHtml(selected?.address||"")}"></div>
+                <div class="form-group"><label>Fixed Payment</label><input type="text" readonly value="${formatMoney(selected?.salary||0)}"></div>
+                <button type="button" class="delete-btn" onclick="removeContractorWorkerRow('${row.id}')">Remove</button>
+            </div>
+        </div>`;
+    }).join("");
+    updateContractorTotals();
+}
+
+function setContractorWorkerType(id, type) {
+    const row = contractorWorkerRows.find(r => String(r.id) === String(id));
+    if (!row) return;
+    row.workType = type;
+    row.workerId = "";
+    renderContractorWorkerRows();
+}
+
+function setContractorWorker(id, workerId) {
+    const row = contractorWorkerRows.find(r => String(r.id) === String(id));
+    if (!row) return;
+    const worker = contractorWorkersPool.find(w => String(w.workerId) === String(workerId));
+    if (worker && String(worker.status).toUpperCase() === "IN_PROGRESS") {
+        showNotification("This worker is already assigned to another work.", "warning");
+        row.workerId = "";
+    } else {
+        row.workerId = workerId;
+        if (worker) row.workType = worker.workType;
+    }
+    renderContractorWorkerRows();
+}
+
+function updateContractorTotals() {
+    const selectedWorkers = contractorWorkerRows.map(r => contractorWorkersPool.find(w => String(w.workerId) === String(r.workerId))).filter(Boolean);
+    const total = selectedWorkers.reduce((sum,w)=>sum+Number(w.salary||0),0);
+    const count = document.getElementById("contractorWorkerCount");
+    const amount = document.getElementById("contractorTotalAmount");
+    if (count) count.value = selectedWorkers.length;
+    if (amount) amount.value = formatMoney(total);
+}
+
+async function suggestContractors() {
+    const input=document.getElementById("contractorPhone"), box=document.getElementById("contractorSuggestions");
+    if(!input||!box)return;
+    const phone=input.value.trim();
+    if(phone.length<3){box.innerHTML="";return;}
+    try {
+        const data=await apiRequest("/data/contractors?search="+encodeURIComponent(phone));
+        contractorSuggestionRows=Array.isArray(data.contractors)?data.contractors:[];
+        box.innerHTML=contractorSuggestionRows.length?`<div style="position:absolute;left:0;right:0;top:2px;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,.12);overflow:hidden;z-index:60;">${contractorSuggestionRows.map((c,i)=>`<button type="button" style="display:block;width:100%;text-align:left;padding:10px 12px;border:0;background:#fff;cursor:pointer;border-bottom:1px solid #f1f5f9;" onclick="selectExistingContractor(${i})"><b>${escapeHtml(c.contractorName||"")}</b><br><small>${escapeHtml(c.phone||"")} · ${escapeHtml(c.address||"")}</small></button>`).join("")}</div>`:"";
+    } catch(e){box.innerHTML="";}
+}
+
+async function selectExistingContractor(index) {
+    const c=contractorSuggestionRows[index];
+    if(!c)return;
+    const name=document.getElementById("contractorName"), phone=document.getElementById("contractorPhone"), address=document.getElementById("contractorAddress"), purpose=document.getElementById("contractorPurpose"), box=document.getElementById("contractorSuggestions");
+    if(name)name.value=c.contractorName||"";
+    if(phone)phone.value=c.phone||"";
+    if(address)address.value=c.address||"";
+    if(purpose)purpose.value=c.purpose||"";
+    if(box)box.innerHTML="";
+}
+
+function clearContractorForm() {
+    ["contractorPhone","contractorName","contractorAddress","contractorPurpose"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+    const box=document.getElementById("contractorSuggestions");if(box)box.innerHTML="";
+    contractorWorkerRows=[]; addContractorWorkerRow();
+}
+
+async function generateContractorSale() {
+    const contractorName=document.getElementById("contractorName")?.value.trim()||"";
+    const phone=document.getElementById("contractorPhone")?.value.trim()||"";
+    const address=document.getElementById("contractorAddress")?.value.trim()||"";
+    const purpose=document.getElementById("contractorPurpose")?.value.trim()||"";
+    const selected=contractorWorkerRows.map(r=>contractorWorkersPool.find(w=>String(w.workerId)===String(r.workerId))).filter(Boolean);
+    if(!contractorName||!phone){showNotification("Enter contracter phone and name.","warning");return;}
+    if(!selected.length){showNotification("Add at least one worker.","warning");return;}
+    const ids=selected.map(w=>Number(w.workerId));
+    if(new Set(ids).size!==ids.length){showNotification("The same worker cannot be assigned twice in one sale.","warning");return;}
+    const total=selected.reduce((sum,w)=>sum+Number(w.salary||0),0);
+    if(!confirm(`Generate sale for ${selected.length} worker(s) for ${formatMoney(total)}?`))return;
+    try {
+        const result=await apiRequest("/data/contractor-sales/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contractorName,phone,address,purpose,workers:ids.map(id=>({workerId:id}))})});
+        if(!result||!result.ok)throw new Error(result?.error||"Contracter sale could not be generated.");
+        showNotification("Contracter sale generated successfully.");
+        await loadContractorWorkersPool();
+        await loadWorkers();
+        await loadContractorSalesHistory();
+        await loadInProgressContractorAssignments();
+        generateContractorInvoice({saleId:result.saleId,contractorName,phone,address,purpose,totalAmount:result.totalAmount,totalWorkers:selected.length,workers:selected});
+        clearContractorForm();
+    } catch(e){console.error(e);showNotification(e?.message||"Contracter sale could not be generated.","warning");}
+}
+
+async function loadInProgressContractorAssignments(){
+    const table=document.getElementById("inProgressContractorTable"); if(!table)return;
+    const search=document.getElementById("inProgressContractorSearch")?.value.trim()||"";
+    try{
+        const data=await apiRequest("/data/contractor-assignments?search="+encodeURIComponent(search));
+        const rows=Array.isArray(data.assignments)?data.assignments:[];
+        if(!rows.length){table.innerHTML='<tr><td colspan="8" style="padding:30px;text-align:center;color:#6b7280;">No in-progress contractor work.</td></tr>';return;}
+        const groups=[];
+        const bySale=new Map();
+        rows.forEach(r=>{let g=bySale.get(Number(r.saleId));if(!g){g={...r,workers:[]};bySale.set(Number(r.saleId),g);groups.push(g);}g.workers.push(r);});
+        let html=""; let index=0;
+        groups.forEach(g=>{
+            g.workers.forEach((w,wi)=>{
+                index++;
+                html+=`<tr><td><input class="worker-select-checkbox contractor-complete-checkbox" type="checkbox" id="contractorComplete_${Number(g.saleId)}_${Number(w.workerId)}" data-sale-id="${Number(g.saleId)}" data-worker-id="${Number(w.workerId)}"></td><td>${index}</td><td><b>${escapeHtml(g.contractorName||"")}</b></td><td>${escapeHtml(g.phone||"")}</td><td>${escapeHtml(formatContractorDate(g.saleDate))}</td><td>${contractorStatusDot("IN_PROGRESS")}${escapeHtml(w.workerName||"")}</td><td>${escapeHtml(w.workType||"")}</td><td>${formatMoney(w.salary)}</td><td>${wi===0?`<button type="button" class="primary-btn" onclick="completeContractorWork(${Number(g.saleId)},null)">Final Complete</button>`:""} <button type="button" class="secondary-btn" onclick="completeContractorWork(${Number(g.saleId)},${Number(w.workerId)})">Complete</button></td></tr>`;
+            });
+        });
+        table.innerHTML=html;
+    }catch(e){table.innerHTML='<tr><td colspan="8" style="padding:25px;text-align:center;color:#dc2626;">Could not load in-progress contractor work.</td></tr>';}
+}
+
+async function completeSelectedContractorWorkers(){
+    const selected=[...document.querySelectorAll('#inProgressContractorTable .contractor-complete-checkbox:checked')].map(cb=>({saleId:Number(cb.dataset.saleId),workerId:Number(cb.dataset.workerId)}));
+    if(!selected.length){showNotification("Select at least one worker to complete.","warning");return;}
+    if(!confirm(`Complete ${selected.length} selected worker(s)?`))return;
+    try{
+        const groups={}; selected.forEach(x=>{(groups[x.saleId] ||= []).push({workerId:x.workerId});});
+        for(const [saleId,workers] of Object.entries(groups)){
+            const result=await apiRequest('/data/contractor-assignments/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({saleId:Number(saleId),workers})});
+            if(!result||!result.ok)throw new Error(result?.error||'Could not complete selected work.');
+        }
+        showNotification("Selected workers completed and are available again.");
+        await loadInProgressContractorAssignments();await loadContractorWorkersPool();await loadWorkers();await loadContractorSalesHistory();
+    }catch(e){showNotification(e?.message||"Could not complete selected work.","warning");}
+}
+
+async function completeContractorWork(saleId, workerId){
+    const message=workerId?"Confirm this worker's work is completed?":"Confirm all workers for this contractor service are completed?";
+    if(!confirm(message))return;
+    const body=workerId?{saleId:Number(saleId),workers:[{workerId:Number(workerId)}]}:{saleId:Number(saleId),workers:[]};
+    try{
+        const result=await apiRequest("/data/contractor-assignments/complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+        if(!result||!result.ok)throw new Error(result?.error||"Could not complete work.");
+        showNotification("Work completed. Selected workers are available again.");
+        await loadInProgressContractorAssignments();
+        await loadContractorWorkersPool();
+        await loadWorkers();
+        await loadContractorSalesHistory();
+    }catch(e){showNotification(e?.message||"Could not complete work.","warning");}
+}
+
+function formatContractorDate(value){
+    const d=new Date(value); if(Number.isNaN(d.getTime())) return String(value||"-");
+    return d.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
+}
+
+
+
+async function loadContractorSalesHistory(){
+    const table=document.getElementById("contractorHistoryTable"); if(!table)return;
+    const search=document.getElementById("contractorHistorySearch")?.value.trim()||"";
+    const date=document.getElementById("contractorHistoryDate")?.value||"";
+    try{
+        const params=[];if(search)params.push("search="+encodeURIComponent(search));if(date)params.push("date="+encodeURIComponent(date));
+        const data=await apiRequest("/data/contractor-sales/history"+(params.length?"?"+params.join("&"):""));
+        contractorHistoryRows=Array.isArray(data.history)?data.history:[];
+        renderContractorSalesHistory();
+    }catch(e){table.innerHTML='<tr><td colspan="7" style="padding:25px;text-align:center;color:#dc2626;">Could not load contracter service history.</td></tr>';}
+}
+
+function renderContractorSalesHistory(){
+    const table=document.getElementById("contractorHistoryTable");if(!table)return;
+    if(!contractorHistoryRows.length){table.innerHTML='<tr><td colspan="7" style="padding:30px;text-align:center;color:#6b7280;">No service sales found.</td></tr>';return;}
+    const sort=document.getElementById("contractorHistorySort")?.value||"date";
+    const rows=[...contractorHistoryRows].sort((a,b)=>{
+        if(sort==="services")return Number(b.serviceCount||0)-Number(a.serviceCount||0);
+        if(sort==="amount")return Number(b.totalAmount||0)-Number(a.totalAmount||0);
+        if(sort==="name")return String(a.contractorName||"").localeCompare(String(b.contractorName||""));
+        return String(b.date||"").localeCompare(String(a.date||""));
+    });
+    table.innerHTML=rows.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(formatContractorDate(r.date))}</td><td><b>${escapeHtml(r.contractorName||"-")}</b></td><td>${escapeHtml(r.phone||"-")}</td><td>${Number(r.serviceCount||0)}</td><td>${formatMoney(r.totalAmount)}</td><td><button type="button" class="secondary-btn" onclick="showContractorDateDetails(${Number(r.contractorId)},'${escapeHtml(r.date)}')">Details</button></td></tr>`).join("");
+}
+
+function resetContractorHistoryControls(){const s=document.getElementById("contractorHistorySearch"),d=document.getElementById("contractorHistoryDate"),o=document.getElementById("contractorHistorySort");if(s)s.value="";if(d)d.value="";if(o)o.value="date";loadContractorSalesHistory();}
+
+function ensureContractorHistoryModal(){
+    if(contractorHistoryModal)return contractorHistoryModal;
+    const modal=document.createElement("div");modal.id="contractorHistoryModal";modal.className="modal";
+    modal.innerHTML='<div class="modal-content" style="max-width:1100px;max-height:88vh;overflow:auto;"><div class="modal-header"><div><h2 id="contractorHistoryModalTitle">Contracter Service Details</h2><p id="contractorHistoryModalSubtitle"></p></div><button class="close-btn" type="button" onclick="closeContractorHistoryModal()">×</button></div><div id="contractorHistoryModalBody"></div></div>';
+    document.body.appendChild(modal);contractorHistoryModal=modal;return modal;
+}
+function closeContractorHistoryModal(){if(contractorHistoryModal)contractorHistoryModal.classList.remove("show");}
+
+async function showContractorDateDetails(contractorId,date){
+    currentContractorHistoryContext={contractorId:Number(contractorId),date:String(date||"")};
+    try{
+        const data=await apiRequest(`/data/contractor-sales/details?contractorId=${Number(contractorId)}&date=${encodeURIComponent(date)}`);
+        if(!data||data.ok===false)throw new Error(data?.error||"Could not load details.");
+        const modal=ensureContractorHistoryModal(),sales=Array.isArray(data.sales)?data.sales:[];
+        const body=document.getElementById("contractorHistoryModalBody");
+        document.getElementById("contractorHistoryModalTitle").textContent=sales[0]?.contractorName||"Contracter Service Details";
+        document.getElementById("contractorHistoryModalSubtitle").textContent=`${formatContractorDate(date)} · ${sales.length} service sale(s)`;
+        body.innerHTML=sales.length?sales.map((sale,index)=>`<div style="border:1px solid #e5e7eb;border-radius:10px;margin-bottom:14px;overflow:hidden;"><div style="padding:12px 14px;background:#f8fafc;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;"><div><b>Sale #${Number(sale.saleId)}</b> · ${escapeHtml(formatContractorDate(sale.saleDate))}<br><span style="color:#6b7280;">Purpose: ${escapeHtml(sale.purpose||"-")}</span></div><div><b>${formatMoney(sale.totalAmount)}</b><br>${Number(sale.totalWorkers||0)} worker(s)</div></div><div style="overflow:auto;"><table style="width:100%;border-collapse:collapse;min-width:700px;"><thead><tr style="background:#f9fafb;"><th style="padding:9px;text-align:left;">#</th><th style="padding:9px;text-align:left;">Worker</th><th style="padding:9px;text-align:left;">Work Type</th><th style="padding:9px;text-align:right;">Fixed Payment</th><th style="padding:9px;text-align:left;">Status</th></tr></thead><tbody>${(sale.workers||[]).map((w,i)=>`<tr style="border-top:1px solid #e5e7eb;"><td style="padding:9px;">${i+1}</td><td style="padding:9px;">${contractorStatusDot(w.status)}${escapeHtml(w.workerName||"-")}</td><td style="padding:9px;">${escapeHtml(w.workType||"-")}</td><td style="padding:9px;text-align:right;">${formatMoney(w.salary)}</td><td style="padding:9px;">${escapeHtml(w.status||"-")}</td></tr>`).join("")}</tbody></table></div><div style="padding:12px 14px;text-align:right;"><button type="button" class="primary-btn" onclick="generateContractorInvoiceFromHistory(${Number(sale.saleId)})">Generate Invoice</button></div></div>`).join(""):'<div style="padding:25px;text-align:center;color:#6b7280;">No service details found.</div>';
+        modal.classList.add("show");
+    }catch(e){showNotification(e?.message||"Could not load contracter details.","warning");}
+}
+
+async function generateContractorInvoiceFromHistory(saleId){
+    try{
+        const ctx=currentContractorHistoryContext||{};
+        if(!ctx.contractorId||!ctx.date)throw new Error("Open the date Details first.");
+        const data=await apiRequest("/data/contractor-sales/details?contractorId="+encodeURIComponent(ctx.contractorId)+"&date="+encodeURIComponent(ctx.date));
+        const sale=(data.sales||[]).find(s=>Number(s.saleId)===Number(saleId));
+        if(!sale)throw new Error("Invoice data could not be loaded.");
+        generateContractorInvoice(sale);
+    }catch(e){showNotification(e?.message||"Could not generate invoice.","warning");}
+}
+
+function generateContractorInvoice(data){
+    const invoiceWindow=window.open("","_blank","width=900,height=700");
+    if(!invoiceWindow){showNotification("Please allow pop-ups to generate invoice.","warning");return;}
+    const workers=Array.isArray(data.workers)?data.workers:[];
+    const invoiceNumber="CON-"+(data.saleId||Date.now());
+    invoiceWindow.document.write(`<!DOCTYPE html><html><head><title>${invoiceNumber}</title><style>body{font-family:Arial,sans-serif;padding:30px;color:#111827}.invoice{max-width:850px;margin:auto;border:1px solid #e5e7eb;padding:30px}.header{display:flex;justify-content:space-between;border-bottom:2px solid #111827;padding-bottom:15px}.title{font-size:26px;font-weight:700}table{width:100%;border-collapse:collapse;margin-top:25px}th,td{border-bottom:1px solid #e5e7eb;padding:10px;text-align:left}th{text-align:left;background:#f8fafc}.right{text-align:right}.total{margin-top:20px;margin-left:auto;width:300px}.total div{display:flex;justify-content:space-between;padding:6px}.grand{font-size:18px;font-weight:700;border-top:2px solid #111827;margin-top:5px;padding-top:10px}.print{padding:10px 15px;margin-bottom:15px}@media print{.print{display:none}.invoice{border:0}}</style></head><body><button class="print" onclick="window.print()">Print Invoice</button><div class="invoice"><div class="header"><div><h1>HardwarePro</h1><div>Hardware Management System</div></div><div><div class="title">SERVICE INVOICE</div><div>Invoice #${invoiceNumber}</div><div>Date: ${escapeHtml(formatContractorDate(data.saleDate||new Date()))}</div></div></div><h3>Contracter Details</h3><p><b>Name:</b> ${escapeHtml(data.contractorName||"")}<br><b>Phone:</b> ${escapeHtml(data.phone||"")}<br><b>Address:</b> ${escapeHtml(data.address||"")}<br><b>Purpose:</b> ${escapeHtml(data.purpose||"")}</p><table><thead><tr><th>#</th><th>Worker</th><th>Work Type</th><th>Status</th><th class="right">Fixed Payment</th></tr></thead><tbody>${workers.map((w,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(w.workerName||"")}</td><td>${escapeHtml(w.workType||"")}</td><td>${escapeHtml(w.status||"IN_PROGRESS")}</td><td class="right">${formatMoney(w.salary)}</td></tr>`).join("")}</tbody></table><div class="total"><div><span>Workers</span><b>${Number(data.totalWorkers||workers.length)}</b></div><div class="grand"><span>Total</span><b>${formatMoney(data.totalAmount)}</b></div></div></div></body></html>`);
+    invoiceWindow.document.close();
+}
+
+async function loadContractorDirectory(){
+    try{
+        const data=await apiRequest("/data/contractors?sort=name");
+        contractorDirectoryRows=Array.isArray(data.contractors)?data.contractors:[];
+    }catch(e){contractorDirectoryRows=[];}
+}
+
+function contractorOptionsHtml(selectedId){
+    return `<option value="">Select Contractor</option>${contractorDirectoryRows.map(c=>`<option value="${Number(c.contractorId)}" ${String(c.contractorId)===String(selectedId||"")?"selected":""}>${escapeHtml(c.contractorName||"")} · ${escapeHtml(c.phone||"")}</option>`).join("")}`;
+}
+
+function readWorkerImage(file){
+    return new Promise((resolve,reject)=>{
+        if(!file){reject(new Error("Aadhar image is required."));return;}
+        if(file.size>5*1024*1024){reject(new Error("Aadhar image must be 5 MB or smaller."));return;}
+        const reader=new FileReader();
+        reader.onload=()=>resolve(String(reader.result||""));
+        reader.onerror=()=>reject(new Error("Could not read Aadhar image."));
+        reader.readAsDataURL(file);
+    });
+}
+
+async function loadWorkers(){
+    const table=document.getElementById("workersTable");if(!table)return;
+    const search=document.getElementById("workerSearch")?.value.trim()||"";
+    const workType=document.getElementById("workerFilterType")?.value||"ALL";
+    const status=document.getElementById("workerStatusFilter")?.value||"ALL";
+    const sort=document.getElementById("workerSort")?.value||"name";
+    try{
+        await loadContractorDirectory();
+        const params=[];if(search)params.push("search="+encodeURIComponent(search));if(workType)params.push("workType="+encodeURIComponent(workType));if(status)params.push("status="+encodeURIComponent(status));if(sort)params.push("sort="+encodeURIComponent(sort));
+        const data=await apiRequest("/data/workers?"+params.join("&"));
+        const rows=Array.isArray(data.workers)?data.workers:[];
+        if(!rows.length){table.innerHTML='<tr><td colspan="7" style="padding:30px;text-align:center;color:#6b7280;">No workers found.</td></tr>';return;}
+        table.innerHTML=rows.map((w,i)=>{
+            const available=String(w.status).toUpperCase()!=="IN_PROGRESS"&&w.active;
+            const assignControls=available?`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><select id="workerContractor_${Number(w.workerId)}" style="min-width:190px;max-width:220px;">${contractorOptionsHtml("")}</select><button type="button" class="secondary-btn" onclick="assignSingleWorker(${Number(w.workerId)})">Assign</button></div>`:(w.status==='IN_PROGRESS'?'<span style="color:#dc2626;font-weight:600;">Assigned</span>':'<span style="color:#6b7280;">Inactive</span>');
+            return `<tr><td><input class="worker-select-checkbox" type="checkbox" id="workerSelect_${Number(w.workerId)}" ${available?'':'disabled'}></td><td>${i+1}</td><td>${contractorStatusDot(w.status)}<b>${escapeHtml(w.workerName||"")}</b></td><td>${escapeHtml(w.phone||"")}</td><td>${escapeHtml(w.workType||"")}</td><td>${formatMoney(w.salary)}</td><td>${assignControls}</td></tr>`;
+        }).join("");
+    }catch(e){table.innerHTML='<tr><td colspan="7" style="padding:25px;text-align:center;color:#dc2626;">Could not load workers.</td></tr>';}
+}
+
+async function assignSingleWorker(workerId){
+    const select=document.getElementById("workerContractor_"+Number(workerId));
+    const contractorId=Number(select?.value||0);
+    if(!contractorId){showNotification("Select a contractor for this worker.","warning");return;}
+    try{
+        const result=await apiRequest("/data/workers/assign",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contractorId,workers:[{workerId:Number(workerId)}]})});
+        if(!result||!result.ok)throw new Error(result?.error||"Worker could not be assigned.");
+        showNotification("Worker assigned successfully.");
+        await loadWorkers();await loadContractorWorkersPool();await loadInProgressContractorAssignments();await loadContractorSalesHistory();
+    }catch(e){showNotification(e?.message||"Worker could not be assigned.","warning");}
+}
+
+async function finalAssignSelectedWorkers(){
+    const selected=[];
+    document.querySelectorAll('#workersTable .worker-select-checkbox:checked').forEach(cb=>{
+        const id=Number(String(cb.id).replace("workerSelect_",""));
+        const contractorId=Number(document.getElementById("workerContractor_"+id)?.value||0);
+        selected.push({workerId:id,contractorId});
+    });
+    if(!selected.length){showNotification("Select at least one available worker.","warning");return;}
+    const missing=selected.find(x=>!x.contractorId);
+    if(missing){showNotification("Select a contractor for every selected worker.","warning");return;}
+    const groups={};
+    selected.forEach(x=>{(groups[x.contractorId] ||= []).push({workerId:x.workerId});});
+    if(!confirm(`Assign ${selected.length} selected worker(s) to ${Object.keys(groups).length} contractor(s)?`))return;
+    try{
+        for(const [contractorId,workers] of Object.entries(groups)){
+            const result=await apiRequest("/data/workers/assign",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contractorId:Number(contractorId),workers})});
+            if(!result||!result.ok)throw new Error(result?.error||"One or more worker assignments failed.");
+        }
+        showNotification("All selected workers were assigned successfully.");
+        await loadWorkers();await loadContractorWorkersPool();await loadInProgressContractorAssignments();await loadContractorSalesHistory();
+    }catch(e){showNotification(e?.message||"Could not assign selected workers.","warning");}
+}
+
+
+function toggleWorkerWorkTypeDropdown(event){
+    if(event) event.stopPropagation();
+    const menu=document.getElementById("workerWorkTypeMenu");
+    const picker=document.getElementById("workerWorkTypePicker");
+    if(!menu||!picker)return;
+    const isOpen=picker.classList.toggle("open");
+    menu.style.display=isOpen?"block":"none";
+}
+function closeWorkerWorkTypeDropdown(){
+    const picker=document.getElementById("workerWorkTypePicker");
+    const menu=document.getElementById("workerWorkTypeMenu");
+    if(picker)picker.classList.remove("open");
+    if(menu)menu.style.display="none";
+}
+function toggleWorkerWorkType(checkbox){
+    const hidden=document.getElementById("workerWorkType");
+    const selected=Array.from(document.querySelectorAll("#workerWorkTypeMenu input[type=checkbox]:checked")).map(o=>o.value);
+    if(hidden)hidden.value=selected.join(",");
+    updateWorkerWorkTypeDisplay();
+}
+function updateWorkerWorkTypeDisplay(){
+    const holder=document.getElementById("workerWorkTypeSelected");
+    const hidden=document.getElementById("workerWorkType");
+    if(!holder)return;
+    const selected=Array.from(document.querySelectorAll("#workerWorkTypeMenu input[type=checkbox]:checked")).map(o=>o.value);
+    if(hidden)hidden.value=selected.join(",");
+    holder.innerHTML=selected.length?selected.map(v=>`<span class="worker-worktype-chip">${escapeHtml(v)}</span>`).join(""):'<span class="worker-worktype-placeholder">Select work type(s)</span>';
+}
+
+async function saveWorker(){
+    const workerName=document.getElementById("workerName")?.value.trim()||"";
+    const phone=document.getElementById("workerPhone")?.value.trim()||"";
+    const workTypes=Array.from(document.querySelectorAll("#workerWorkTypeMenu input[type=checkbox]:checked")).map(o=>o.value).filter(Boolean);
+    const workType=workTypes.join(",");
+    const address=document.getElementById("workerAddress")?.value.trim()||"";
+    const salary=Number(document.getElementById("workerSalary")?.value);
+    const aadharNumber=document.getElementById("workerAadharNumber")?.value.trim()||"";
+    const imageFile=document.getElementById("workerAadharImage")?.files?.[0];
+    const active=document.getElementById("workerActive")?.value!=="false";
+    if(!workerName||!phone||!workTypes.length||!address||!aadharNumber||!imageFile){showNotification("All worker fields are mandatory, including work type, address, Aadhar number and Aadhar image.","warning");return;}
+    if(!Number.isFinite(salary)||salary<0){showNotification("Enter a valid fixed payment.","warning");return;}
+    try{
+        const aadharImage=await readWorkerImage(imageFile);
+        const result=await apiRequest("/data/workers/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({workerName,phone,workType,address,salary,aadharNumber,aadharImage,active})});
+        if(!result||!result.ok)throw new Error(result?.error||"Worker could not be added.");
+        showNotification("Worker added successfully.");clearWorkerForm();await loadWorkers();await loadContractorWorkersPool();
+    }catch(e){showNotification(e?.message||"Worker could not be added.","warning");}
+}
+
+function clearWorkerForm(){
+    ["workerName","workerPhone","workerAddress","workerSalary","workerAadharNumber"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+    const wt=document.getElementById("workerWorkType");if(wt)wt.value="";
+    document.querySelectorAll("#workerWorkTypeMenu input[type=checkbox]").forEach(o=>o.checked=false);
+    updateWorkerWorkTypeDisplay();
+    closeWorkerWorkTypeDropdown();
+    const image=document.getElementById("workerAadharImage");if(image)image.value="";
+    const a=document.getElementById("workerActive");if(a)a.value="true";
+}
+async function toggleWorkerActive(id,active){try{const result=await apiRequest(`/data/workers/active?id=${Number(id)}&active=${active}`,{method:"POST"});if(!result||!result.ok)throw new Error(result?.error||"Could not update worker.");await loadWorkers();await loadContractorWorkersPool();}catch(e){showNotification(e?.message||"Could not update worker.","warning");}}
+async function completeWorker(id){if(!confirm("Confirm that this worker's work is completed?"))return;try{const result=await apiRequest(`/data/workers/complete?id=${Number(id)}`,{method:"POST"});if(!result||!result.ok)throw new Error(result?.error||"Could not complete work.");showNotification("Work completed. Worker is available again.");await loadWorkers();await loadContractorWorkersPool();await loadContractorSalesHistory();await loadInProgressContractorAssignments();}catch(e){showNotification(e?.message||"Could not complete work.","warning");}}
+function resetWorkerControls(){["workerSearch"].forEach(id=>{const e=document.getElementById(id);if(e)e.value="";});const t=document.getElementById("workerFilterType"),s=document.getElementById("workerStatusFilter"),o=document.getElementById("workerSort");if(t)t.value="ALL";if(s)s.value="ALL";if(o)o.value="name";loadWorkers();}
+
+window.prepareContractorPage=prepareContractorPage;
+window.loadContractorWorkersPool=loadContractorWorkersPool;
+window.addContractorWorkerRow=addContractorWorkerRow;
+window.removeContractorWorkerRow=removeContractorWorkerRow;
+window.setContractorWorkerType=setContractorWorkerType;
+window.setContractorWorker=setContractorWorker;
+window.suggestContractors=suggestContractors;
+window.selectExistingContractor=selectExistingContractor;
+window.clearContractorForm=clearContractorForm;
+window.generateContractorSale=generateContractorSale;
+window.loadContractorSalesHistory=loadContractorSalesHistory;
+window.resetContractorHistoryControls=resetContractorHistoryControls;
+window.showContractorDateDetails=showContractorDateDetails;
+window.closeContractorHistoryModal=closeContractorHistoryModal;
+window.generateContractorInvoiceFromHistory=generateContractorInvoiceFromHistory;
+window.generateContractorInvoice=generateContractorInvoice;
+window.loadWorkers=loadWorkers;
+window.saveWorker=saveWorker;
+window.clearWorkerForm=clearWorkerForm;
+window.toggleWorkerActive=toggleWorkerActive;
+window.completeWorker=completeWorker;
+window.assignSingleWorker=assignSingleWorker;
+window.finalAssignSelectedWorkers=finalAssignSelectedWorkers;
+window.loadInProgressContractorAssignments=loadInProgressContractorAssignments;
+window.completeContractorWork=completeContractorWork;
+window.completeSelectedContractorWorkers=completeSelectedContractorWorkers;
+window.resetWorkerControls=resetWorkerControls;
+window.toggleWorkerWorkTypeDropdown=toggleWorkerWorkTypeDropdown;
+window.toggleWorkerWorkType=toggleWorkerWorkType;
+window.updateWorkerWorkTypeDisplay=updateWorkerWorkTypeDisplay;
+
+document.addEventListener("click", function(event){
+    const picker=document.getElementById("workerWorkTypePicker");
+    if(picker && !picker.contains(event.target)) closeWorkerWorkTypeDropdown();
+});
+
+window.addEventListener("click", function(event) {
+    if (contractorHistoryModal && event.target === contractorHistoryModal) closeContractorHistoryModal();
+});

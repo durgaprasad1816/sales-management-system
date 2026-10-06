@@ -3,8 +3,10 @@ package com.hardware.app.server;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.net.URLDecoder;
 
 import com.hardware.app.service.CustomerService;
+import com.hardware.app.service.ContractorService;
 import com.hardware.app.service.DashboardService;
 import com.hardware.app.service.ProductService;
 import com.hardware.app.service.PurchaseService;
@@ -24,6 +26,7 @@ public class HardwareHttpServer {
     private final SalesService salesService;
     private final SupplierService supplierService;
     private final CustomerService customerService;
+    private final ContractorService contractorService;
 
     public HardwareHttpServer(int port) throws IOException {
 
@@ -38,6 +41,7 @@ public class HardwareHttpServer {
         salesService = new SalesService();
         supplierService = new SupplierService();
         customerService = new CustomerService();
+        contractorService = new ContractorService();
 
         createRoutes();
     }
@@ -156,6 +160,23 @@ public class HardwareHttpServer {
                 "/data/customers/details",
                 this::handleCustomerDetails
         );
+
+        // ==============================
+        // CONTRACTORS / WORKERS
+        // ==============================
+
+        server.createContext("/data/workers", this::handleWorkers);
+        server.createContext("/data/workers/add", this::handleAddWorker);
+        server.createContext("/data/workers/active", this::handleWorkerActive);
+        server.createContext("/data/workers/complete", this::handleWorkerComplete);
+        server.createContext("/data/workers/assign", this::handleWorkerAssign);
+        server.createContext("/data/contractor-assignments", this::handleContractorAssignments);
+        server.createContext("/data/contractor-assignments/complete", this::handleContractorAssignmentsComplete);
+        server.createContext("/data/contractors", this::handleContractors);
+        server.createContext("/data/contractors/details", this::handleContractorDetails);
+        server.createContext("/data/contractor-sales/add", this::handleAddContractorSale);
+        server.createContext("/data/contractor-sales/history", this::handleContractorSalesHistory);
+        server.createContext("/data/contractor-sales/details", this::handleContractorSaleDetails);
     }
 
     // =====================================================
@@ -692,7 +713,11 @@ public class HardwareHttpServer {
             if (pair.length == 2
                     && pair[0].equals(parameter)) {
 
-                return pair[1];
+                try {
+                    return URLDecoder.decode(pair[1], StandardCharsets.UTF_8);
+                } catch (Exception ignored) {
+                    return pair[1];
+                }
             }
         }
 
@@ -1112,6 +1137,90 @@ public class HardwareHttpServer {
                     errorJson(e)
             );
         }
+    }
+
+    // =====================================================
+    // CONTRACTORS / WORKERS
+    // =====================================================
+
+    private void handleWorkers(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
+            sendJson(exchange, 405, "{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return;
+        }
+        try { String q=exchange.getRequestURI().getQuery(); sendJson(exchange,200,contractorService.getWorkers(getQueryParameter(q,"search"),getQueryParameter(q,"workType"),getQueryParameter(q,"status"),getQueryParameter(q,"sort"))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
+    }
+
+    private void handleAddWorker(HttpExchange exchange) throws IOException {
+        if (handleCorsPreflight(exchange)) return;
+        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
+        try { sendJson(exchange,200,contractorService.addWorkerFromJson(readRequestBody(exchange))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
+    }
+
+    private void handleWorkerActive(HttpExchange exchange) throws IOException {
+        if (handleCorsPreflight(exchange)) return;
+        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
+        try { String q=exchange.getRequestURI().getQuery(); sendJson(exchange,200,contractorService.updateWorkerActive(getQueryInt(q,"id"),"true".equalsIgnoreCase(getQueryParameter(q,"active")))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
+    }
+
+    private void handleWorkerComplete(HttpExchange exchange) throws IOException {
+        if (handleCorsPreflight(exchange)) return;
+        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
+        try { sendJson(exchange,200,contractorService.completeWorkerAssignment(getQueryInt(exchange.getRequestURI().getQuery(),"id"))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
+    }
+
+    private void handleWorkerAssign(HttpExchange exchange) throws IOException {
+        if (handleCorsPreflight(exchange)) return;
+        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
+        try { sendJson(exchange,200,contractorService.createContractorSale(readRequestBody(exchange))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
+    }
+
+    private void handleContractorAssignments(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
+        try { String q=exchange.getRequestURI().getQuery(); sendJson(exchange,200,contractorService.getInProgressAssignments(getQueryParameter(q,"search"))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
+    }
+
+    private void handleContractorAssignmentsComplete(HttpExchange exchange) throws IOException {
+        if (handleCorsPreflight(exchange)) return;
+        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
+        try { sendJson(exchange,200,contractorService.completeContractorAssignments(readRequestBody(exchange))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
+    }
+
+    private void handleContractors(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
+        try { String q=exchange.getRequestURI().getQuery(); sendJson(exchange,200,contractorService.getContractors(getQueryParameter(q,"search"),getQueryParameter(q,"sort"))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
+    }
+
+    private void handleContractorDetails(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
+        try { sendJson(exchange,200,contractorService.getContractorDetails(getQueryInt(exchange.getRequestURI().getQuery(),"id"))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
+    }
+
+    private void handleAddContractorSale(HttpExchange exchange) throws IOException {
+        if (handleCorsPreflight(exchange)) return;
+        if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
+        try { sendJson(exchange,200,contractorService.createContractorSale(readRequestBody(exchange))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
+    }
+
+    private void handleContractorSalesHistory(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
+        try { String q=exchange.getRequestURI().getQuery(); sendJson(exchange,200,contractorService.getContractorSalesHistory(getQueryParameter(q,"date"),getQueryParameter(q,"search"))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
+    }
+
+    private void handleContractorSaleDetails(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
+        try { String q=exchange.getRequestURI().getQuery(); sendJson(exchange,200,contractorService.getContractorSaleDetails(getQueryInt(q,"contractorId"),getQueryParameter(q,"date"))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
     }
 
     // =====================================================

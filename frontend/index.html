@@ -61,6 +61,16 @@
             Customers
         </button>
 
+        <button class="nav-item" onclick="showPage('contractor', this)">
+            <span>🏗️</span>
+            Contracters
+        </button>
+
+        <button class="nav-item" onclick="showPage('worker', this)">
+            <span>👷</span>
+            Workers
+        </button>
+
     </nav>
 
     <div class="sidebar-footer">
@@ -851,6 +861,190 @@
         </div>
         <div class="dashboard-card"><div class="table-wrapper"><table style="min-width:900px;"><thead><tr><th>#</th><th>Customer</th><th>Phone</th><th>Type</th><th>Purchases</th><th>Last Purchase</th><th>Action</th></tr></thead><tbody id="customersTable"><tr><td colspan="7" class="loading">Loading customers...</td></tr></tbody></table></div></div>
         <div id="customerDetailsSection" style="margin-top:20px;"></div>
+    </section>
+
+    <!-- CONTRACTER PAGE -->
+    <section id="contractorPage" class="page">
+        <div class="page-toolbar">
+            <div><h2>Contracters</h2><p>Assign available workers, create service sales and track contractor history</p></div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="section-header"><div><h2>Contracter Details</h2><p>Phone-first lookup fills an existing contracter automatically.</p></div></div>
+            <div class="form-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 28px !important;">
+                <div class="form-group"><label>Phone <span class="required-star">*</span></label><input id="contractorPhone" type="text" placeholder="Enter phone number" autocomplete="off" oninput="suggestContractors()" required><div id="contractorSuggestions" style="position:relative;z-index:50;"></div></div>
+                <div class="form-group"><label>Contracter Name <span class="required-star">*</span></label><input id="contractorName" type="text" placeholder="Contracter name" required></div>
+                <div class="form-group"><label>Address</label><input id="contractorAddress" type="text" placeholder="Address"></div>
+                <div class="form-group"><label>Purpose</label><input id="contractorPurpose" type="text" placeholder="Cleaning / Plumbing / Electrical work"></div>
+                <div class="form-group"><label>No. of Workers</label><input id="contractorWorkerCount" type="number" value="0" readonly></div>
+                <div class="form-group"><label>Total Amount</label><input id="contractorTotalAmount" type="text" value="₹0.00" readonly></div>
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="section-header"><div><h2>Assign Workers</h2><p>Select work type first, then select an available worker. Use the worker status filters to view available or assigned workers.</p></div><button class="secondary-btn" type="button" onclick="addContractorWorkerRow()">+ Add Worker</button></div>
+            <div id="contractorWorkerRows"></div>
+            <div class="form-actions">
+                <button type="button" class="secondary-btn" onclick="clearContractorForm()">Clear</button>
+                <button type="button" class="primary-btn" onclick="generateContractorSale()">Generate Sale & Invoice</button>
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="section-header"><div><h2>In-Progress Contractor Work</h2><p>Complete one worker or complete all workers for a contractor service.</p></div><button type="button" class="secondary-btn" onclick="loadInProgressContractorAssignments()">Refresh</button></div>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;">
+                <div class="search-box" style="flex:1;min-width:220px;margin-bottom:0;"><span>🔍</span><input id="inProgressContractorSearch" type="text" placeholder="Search contractor / phone..." oninput="loadInProgressContractorAssignments()"></div>
+            </div>
+            <div class="table-wrapper"><table style="min-width:1180px;"><thead><tr><th>Select</th><th>#</th><th>Contracter</th><th>Phone</th><th>Work Date</th><th>Worker</th><th>Work Type</th><th>Payment</th><th>Action</th></tr></thead><tbody id="inProgressContractorTable"><tr><td colspan="8" class="loading">Loading in-progress work...</td></tr></tbody></table></div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="section-header"><div><h2>Contracter Service History</h2><p>Date-wise service count, amount and details.</p></div></div>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;">
+                <div class="search-box" style="flex:1;min-width:220px;margin-bottom:0;"><span>🔍</span><input id="contractorHistorySearch" type="text" placeholder="Search contracter / phone..." oninput="loadContractorSalesHistory()"></div>
+                <input id="contractorHistoryDate" type="date" onchange="loadContractorSalesHistory()" style="padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;">
+                <select id="contractorHistorySort" onchange="renderContractorSalesHistory()" style="min-width:160px;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;"><option value="date">Sort: Date</option><option value="services">Sort: Services</option><option value="amount">Sort: Amount</option><option value="name">Sort: Name</option></select>
+                <button type="button" class="secondary-btn" onclick="resetContractorHistoryControls()">Reset</button>
+            </div>
+            <div class="table-wrapper"><table style="min-width:900px;"><thead><tr><th>#</th><th>Date</th><th>Contracter</th><th>Phone</th><th>Services on Date</th><th>Total Amount</th><th>Action</th></tr></thead><tbody id="contractorHistoryTable"><tr><td colspan="7" class="loading">Loading service history...</td></tr></tbody></table></div>
+        </div>
+    </section>
+
+    <!-- WORKER PAGE -->
+    <section id="workerPage" class="page">
+        <div class="page-toolbar"><div><h2>Workers</h2><p>Store worker details, fixed payment and current assignment status</p></div></div>
+
+        <div class="dashboard-card">
+            <div class="section-header"><div><h2>Add Worker</h2><p>Salary is the fixed payment used automatically on the Contracters page.</p></div></div>
+            <div class="form-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 28px !important;">
+                <div class="form-group"><label>Worker Name <span class="required-star">*</span></label><input id="workerName" type="text" placeholder="Worker name" required></div>
+                <div class="form-group"><label>Phone Number <span class="required-star">*</span></label><input id="workerPhone" type="text" placeholder="Phone number" required></div>
+<div class="form-group">
+    <label>
+        Work Type(s) <span class="required-star">*</span>
+    </label>
+
+    <div class="worker-worktype-picker" id="workerWorkTypePicker">
+
+        <button
+            type="button"
+            class="worker-worktype-toggle"
+            id="workerWorkTypeToggle"
+            onclick="toggleWorkerWorkTypeDropdown(event)"
+        >
+            <span id="workerWorkTypeSelected">
+                Select work type(s)
+            </span>
+
+            <span class="worker-worktype-arrow">▾</span>
+        </button>
+
+        <div
+            class="worker-worktype-menu"
+            id="workerWorkTypeMenu"
+        >
+
+            <label class="worker-worktype-option">
+                <input
+                    type="checkbox"
+                    value="Cleaning"
+                    onchange="toggleWorkerWorkType(this)"
+                >
+                <span>Cleaning</span>
+            </label>
+
+            <label class="worker-worktype-option">
+                <input
+                    type="checkbox"
+                    value="Plumber"
+                    onchange="toggleWorkerWorkType(this)"
+                >
+                <span>Plumber</span>
+            </label>
+
+            <label class="worker-worktype-option">
+                <input
+                    type="checkbox"
+                    value="Electrical"
+                    onchange="toggleWorkerWorkType(this)"
+                >
+                <span>Electrical</span>
+            </label>
+
+            <label class="worker-worktype-option">
+                <input
+                    type="checkbox"
+                    value="Carpenter"
+                    onchange="toggleWorkerWorkType(this)"
+                >
+                <span>Carpenter</span>
+            </label>
+
+            <label class="worker-worktype-option">
+                <input
+                    type="checkbox"
+                    value="Painter"
+                    onchange="toggleWorkerWorkType(this)"
+                >
+                <span>Painter</span>
+            </label>
+
+            <label class="worker-worktype-option">
+                <input
+                    type="checkbox"
+                    value="Mason"
+                    onchange="toggleWorkerWorkType(this)"
+                >
+                <span>Mason</span>
+            </label>
+
+            <label class="worker-worktype-option">
+                <input
+                    type="checkbox"
+                    value="AC Technician"
+                    onchange="toggleWorkerWorkType(this)"
+                >
+                <span>AC Technician</span>
+            </label>
+
+            <label class="worker-worktype-option">
+                <input
+                    type="checkbox"
+                    value="Other"
+                    onchange="toggleWorkerWorkType(this)"
+                >
+                <span>Other</span>
+            </label>
+
+        </div>
+    </div>
+
+    <input
+        id="workerWorkType"
+        type="hidden"
+        value=""
+    >
+</div>                <div class="form-group"><label>Address <span class="required-star">*</span></label><input id="workerAddress" type="text" placeholder="Address" required></div>
+                <div class="form-group"><label>Fixed Salary / Payment <span class="required-star">*</span></label><input id="workerSalary" type="number" min="0" step="0.01" placeholder="0.00" required></div>
+                <div class="form-group"><label>Aadhar Number <span class="required-star">*</span></label><input id="workerAadharNumber" type="text" placeholder="Aadhar number" required></div>
+                <div class="form-group"><label>Aadhar Image <span class="required-star">*</span></label><input id="workerAadharImage" type="file" accept="image/*" required></div>
+                <div class="form-group"><label>Active <span class="required-star">*</span></label><select id="workerActive" required><option value="true">Active</option><option value="false">Inactive</option></select></div>
+            </div>
+            <div class="form-actions"><button type="button" class="secondary-btn" onclick="clearWorkerForm()">Clear</button><button type="button" class="primary-btn" onclick="saveWorker()">Add Worker</button></div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="section-header"><div><h2>All Workers</h2><p>Use the status filters to view available, assigned or inactive workers and assign available workers to contractors.</p></div></div>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;">
+                <div class="search-box" style="flex:1;min-width:220px;margin-bottom:0;"><span>🔍</span><input id="workerSearch" type="text" placeholder="Search worker / phone..." oninput="loadWorkers()"></div>
+                <select id="workerFilterType" onchange="loadWorkers()" style="min-width:160px;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;"><option value="ALL">All Work Types</option><option value="Cleaning">Cleaning</option><option value="Plumber">Plumber</option><option value="Electrical">Electrical</option><option value="Carpenter">Carpenter</option><option value="Painter">Painter</option><option value="Mason">Mason</option><option value="AC Technician">AC Technician</option><option value="Other">Other</option></select>
+                <select id="workerStatusFilter" onchange="loadWorkers()" style="min-width:150px;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;"><option value="ALL">All Status</option><option value="AVAILABLE">Available</option><option value="IN_PROGRESS">Assigned</option><option value="INACTIVE">Inactive</option><option value="ACTIVE">Active</option></select>
+                <select id="workerSort" onchange="loadWorkers()" style="min-width:160px;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;"><option value="name">Sort: Name</option><option value="salary">Sort: Salary</option><option value="worktype">Sort: Work Type</option><option value="status">Sort: Status</option><option value="phone">Sort: Phone</option></select>
+                <button type="button" class="secondary-btn" onclick="resetWorkerControls()">Reset</button>
+            </div>
+            <div class="table-wrapper"><table style="min-width:1050px;"><thead><tr><th>Select</th><th>#</th><th>Worker</th><th>Phone</th><th>Work Type</th><th>Fixed Payment</th><th>Assign</th></tr></thead><tbody id="workersTable"><tr><td colspan="7" class="loading">Loading workers...</td></tr></tbody></table></div>
+            <div class="form-actions" style="margin-top:16px;"><button type="button" class="primary-btn" onclick="finalAssignSelectedWorkers()">Final Assign Selected Workers</button></div>
+        </div>
     </section>
 
 </main>

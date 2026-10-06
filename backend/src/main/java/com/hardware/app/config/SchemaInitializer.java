@@ -26,10 +26,71 @@ public final class SchemaInitializer {
             ensureColumn(c, "purchases", "purchase_date", "DATETIME DEFAULT CURRENT_TIMESTAMP");
             ensureColumn(c, "customers", "email", "VARCHAR(150)");
             ensureColumn(c, "customers", "gst", "VARCHAR(50)");
+            ensureContractorTables(c);
             System.out.println("Extended HardwarePro schema checked successfully.");
         } catch (Exception e) {
             System.err.println("Schema check failed: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    private static void ensureContractorTables(Connection c) throws Exception {
+        try (Statement st = c.createStatement()) {
+            st.executeUpdate("CREATE TABLE IF NOT EXISTS contractors (" +
+                    "contractor_id INT AUTO_INCREMENT PRIMARY KEY," +
+                    "contractor_name VARCHAR(150) NOT NULL," +
+                    "phone VARCHAR(50) NOT NULL," +
+                    "address VARCHAR(300)," +
+                    "purpose VARCHAR(200)," +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                    "INDEX idx_contractors_phone(phone), INDEX idx_contractors_name(contractor_name)" +
+                    ") ENGINE=InnoDB");
+
+            st.executeUpdate("CREATE TABLE IF NOT EXISTS workers (" +
+                    "worker_id INT AUTO_INCREMENT PRIMARY KEY," +
+                    "worker_name VARCHAR(150) NOT NULL," +
+                    "phone VARCHAR(50) NOT NULL," +
+                    "work_type VARCHAR(100) NOT NULL," +
+                    "skills TEXT," +
+                    "address VARCHAR(300)," +
+                    "salary DECIMAL(12,2) NOT NULL DEFAULT 0," +
+                    "aadhar_number VARCHAR(30)," +
+                    "aadhar_image LONGTEXT," +
+                    "active TINYINT(1) NOT NULL DEFAULT 1," +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                    "INDEX idx_workers_phone(phone), INDEX idx_workers_type(work_type), INDEX idx_workers_active(active), INDEX idx_workers_aadhar(aadhar_number)" +
+                    ") ENGINE=InnoDB");
+            ensureColumn(c, "workers", "skills", "TEXT");
+            ensureColumn(c, "workers", "aadhar_number", "VARCHAR(30)");
+            ensureColumn(c, "workers", "aadhar_image", "LONGTEXT");
+
+            st.executeUpdate("CREATE TABLE IF NOT EXISTS contractor_sales (" +
+                    "sale_id INT AUTO_INCREMENT PRIMARY KEY," +
+                    "contractor_id INT NOT NULL," +
+                    "total_workers INT NOT NULL DEFAULT 0," +
+                    "total_amount DECIMAL(12,2) NOT NULL DEFAULT 0," +
+                    "purpose VARCHAR(200)," +
+                    "sale_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                    "INDEX idx_contractor_sales_contractor(contractor_id)," +
+                    "INDEX idx_contractor_sales_date(sale_date)," +
+                    "CONSTRAINT fk_contractor_sales_contractor FOREIGN KEY (contractor_id) REFERENCES contractors(contractor_id)" +
+                    ") ENGINE=InnoDB");
+
+            st.executeUpdate("CREATE TABLE IF NOT EXISTS contractor_sale_workers (" +
+                    "assignment_id INT AUTO_INCREMENT PRIMARY KEY," +
+                    "sale_id INT NOT NULL," +
+                    "worker_id INT NOT NULL," +
+                    "worker_name VARCHAR(150) NOT NULL," +
+                    "work_type VARCHAR(100) NOT NULL," +
+                    "salary DECIMAL(12,2) NOT NULL DEFAULT 0," +
+                    "assignment_status VARCHAR(20) NOT NULL DEFAULT 'IN_PROGRESS'," +
+                    "assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                    "completed_at TIMESTAMP NULL," +
+                    "INDEX idx_csw_worker_status(worker_id,assignment_status)," +
+                    "INDEX idx_csw_sale(sale_id)," +
+                    "CONSTRAINT fk_csw_sale FOREIGN KEY (sale_id) REFERENCES contractor_sales(sale_id)," +
+                    "CONSTRAINT fk_csw_worker FOREIGN KEY (worker_id) REFERENCES workers(worker_id)" +
+                    ") ENGINE=InnoDB");
         }
     }
 
