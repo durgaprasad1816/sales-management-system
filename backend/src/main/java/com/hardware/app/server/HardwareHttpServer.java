@@ -2,11 +2,11 @@ package com.hardware.app.server;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
-import com.hardware.app.service.CustomerService;
 import com.hardware.app.service.ContractorService;
+import com.hardware.app.service.CustomerService;
 import com.hardware.app.service.DashboardService;
 import com.hardware.app.service.ProductService;
 import com.hardware.app.service.PurchaseService;
@@ -1200,11 +1200,49 @@ public class HardwareHttpServer {
         catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
     }
 
-    private void handleAddContractor(HttpExchange exchange) throws IOException {
-        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method not allowed.\"}"); return; }
-        sendJson(exchange,200,contractorService.addContractor(readRequestBody(exchange)));
+private void handleAddContractor(HttpExchange exchange) throws IOException {
+
+    // CORS preflight
+    if (handleCorsPreflight(exchange)) {
+        return;
     }
 
+    // Only POST is allowed
+    if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+
+        sendJson(
+                exchange,
+                405,
+                "{\"ok\":false,\"error\":\"Method not allowed.\"}"
+        );
+
+        return;
+    }
+
+    try {
+
+        String body = readRequestBody(exchange);
+
+        String result =
+                contractorService.addContractor(body);
+
+        sendJson(
+                exchange,
+                200,
+                result
+        );
+
+    } catch (Exception e) {
+
+        e.printStackTrace();
+
+        sendJson(
+                exchange,
+                500,
+                errorJson(e)
+        );
+    }
+}
     private void handleContractors(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
         try { String q=exchange.getRequestURI().getQuery(); sendJson(exchange,200,contractorService.getContractors(getQueryParameter(q,"search"),getQueryParameter(q,"sort"),getQueryParameter(q,"range"))); }
