@@ -45,8 +45,8 @@ title: "Customers",
 description: "Customer directory and sales history"
 },
 contractor: {
-title: "Contracters",
-description: "Assign workers and manage contractor service sales"
+title: "Contractors",
+description: "Manage contractors, relationship range and in-progress work"
 },
 worker: {
 title: "Workers",
@@ -4570,16 +4570,17 @@ let contractorHistoryRows = [];
 let contractorHistoryModal = null;
 let currentContractorHistoryContext = { contractorId: 0, date: "" };
 let contractorDirectoryRows = [];
+let inProgressContractorGroups = [];
+let currentContractorWorkSaleId = 0;
 
 function contractorStatusDot(status) {
     return "";
 }
 
 async function prepareContractorPage() {
-    await loadContractorWorkersPool();
-    if (!contractorWorkerRows.length) addContractorWorkerRow();
-    else renderContractorWorkerRows();
-    await loadContractorSalesHistory();
+    const start = document.getElementById("newContractorRelationStart");
+    if (start && !start.value) start.value = new Date().toISOString().slice(0,10);
+    await loadContractorDirectory();
     await loadInProgressContractorAssignments();
 }
 
@@ -4731,49 +4732,100 @@ async function loadInProgressContractorAssignments(){
     try{
         const data=await apiRequest("/data/contractor-assignments?search="+encodeURIComponent(search));
         const rows=Array.isArray(data.assignments)?data.assignments:[];
-        if(!rows.length){table.innerHTML='<tr><td colspan="8" style="padding:30px;text-align:center;color:#6b7280;">No in-progress contractor work.</td></tr>';return;}
-        const groups=[];
         const bySale=new Map();
-        rows.forEach(r=>{let g=bySale.get(Number(r.saleId));if(!g){g={...r,workers:[]};bySale.set(Number(r.saleId),g);groups.push(g);}g.workers.push(r);});
-        let html=""; let index=0;
-        groups.forEach(g=>{
-            g.workers.forEach((w,wi)=>{
-                index++;
-                html+=`<tr><td><input class="worker-select-checkbox contractor-complete-checkbox" type="checkbox" id="contractorComplete_${Number(g.saleId)}_${Number(w.workerId)}" data-sale-id="${Number(g.saleId)}" data-worker-id="${Number(w.workerId)}"></td><td>${index}</td><td><b>${escapeHtml(g.contractorName||"")}</b></td><td>${escapeHtml(g.phone||"")}</td><td>${escapeHtml(formatContractorDate(g.saleDate))}</td><td>${contractorStatusDot("IN_PROGRESS")}${escapeHtml(w.workerName||"")}</td><td>${escapeHtml(w.workType||"")}</td><td>${formatMoney(w.salary)}</td><td>${wi===0?`<button type="button" class="primary-btn" onclick="completeContractorWork(${Number(g.saleId)},null)">Final Complete</button>`:""} <button type="button" class="secondary-btn" onclick="completeContractorWork(${Number(g.saleId)},${Number(w.workerId)})">Complete</button></td></tr>`;
-            });
+        rows.forEach(r=>{
+            const saleId=Number(r.saleId);
+            let group=bySale.get(saleId);
+            if(!group){ group={...r,workers:[]}; bySale.set(saleId,group); }
+            group.workers.push(r);
         });
-        table.innerHTML=html;
-    }catch(e){table.innerHTML='<tr><td colspan="8" style="padding:25px;text-align:center;color:#dc2626;">Could not load in-progress contractor work.</td></tr>';}
-}
-
-async function completeSelectedContractorWorkers(){
-    const selected=[...document.querySelectorAll('#inProgressContractorTable .contractor-complete-checkbox:checked')].map(cb=>({saleId:Number(cb.dataset.saleId),workerId:Number(cb.dataset.workerId)}));
-    if(!selected.length){showNotification("Select at least one worker to complete.","warning");return;}
-    if(!confirm(`Complete ${selected.length} selected worker(s)?`))return;
-    try{
-        const groups={}; selected.forEach(x=>{(groups[x.saleId] ||= []).push({workerId:x.workerId});});
-        for(const [saleId,workers] of Object.entries(groups)){
-            const result=await apiRequest('/data/contractor-assignments/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({saleId:Number(saleId),workers})});
-            if(!result||!result.ok)throw new Error(result?.error||'Could not complete selected work.');
+        inProgressContractorGroups=[...bySale.values()];
+        if(!inProgressContractorGroups.length){
+            table.innerHTML='<tr><td colspan="7" style="padding:30px;text-align:center;color:#6b7280;">No in-progress contractor work.</td></tr>';
+            return;
         }
-        showNotification("Selected workers completed and are available again.");
-        await loadInProgressContractorAssignments();await loadContractorWorkersPool();await loadWorkers();await loadContractorSalesHistory();
-    }catch(e){showNotification(e?.message||"Could not complete selected work.","warning");}
+        table.innerHTML=inProgressContractorGroups.map((g,index)=>`<tr>
+            <td><input type="checkbox" class="inprogress-contractor-select" data-sale-id="${Number(g.saleId)}" onchange="updateContractorRowSelection()"></td>
+            <td>${index+1}</td>
+            <td><b>${escapeHtml(g.contractorName||"")}</b></td>
+            <td>${escapeHtml(g.phone||"")}</td>
+            <td>${escapeHtml(formatContractorDate(g.saleDate))}</td>
+            <td>${g.workers.length}</td>
+            <td><button type="button" class="secondary-btn" onclick="openContractorWorkModal(${Number(g.saleId)})">Details</button></td>
+        </tr>`).join("");
+    }catch(e){
+        inProgressContractorGroups=[];
+        table.innerHTML='<tr><td colspan="7" style="padding:25px;text-align:center;color:#dc2626;">Could not load in-progress contractor work.</td></tr>';
+    }
 }
 
-async function completeContractorWork(saleId, workerId){
-    const message=workerId?"Confirm this worker's work is completed?":"Confirm all workers for this contractor service are completed?";
+function updateContractorRowSelection(){
+    const selected=[...document.querySelectorAll('#inProgressContractorTable .inprogress-contractor-select:checked')];
+    if(!selected.length)return;
+    document.querySelectorAll('#inProgressContractorTable .inprogress-contractor-select').forEach(cb=>{ if(cb!==selected[0]) cb.checked=false; });
+    openContractorWorkModal(Number(selected[0].dataset.saleId));
+}
+
+function openContractorWorkModal(saleId){
+    const group=inProgressContractorGroups.find(g=>Number(g.saleId)===Number(saleId));
+    if(!group)return;
+    currentContractorWorkSaleId=Number(saleId);
+    const modal=document.getElementById("contractorWorkModal");
+    const title=document.getElementById("contractorWorkModalTitle");
+    const subtitle=document.getElementById("contractorWorkModalSubtitle");
+    const content=document.getElementById("contractorWorkModalContent");
+    if(!modal||!content)return;
+    if(title)title.textContent=`${group.contractorName||"Contractor"} — In-Progress Work`;
+    if(subtitle)subtitle.textContent=`${group.phone||""} · Date: ${formatContractorDate(group.saleDate)} · ${group.workers.length} worker(s)`;
+    content.innerHTML=`<div style="overflow:auto;"><table style="width:100%;min-width:720px;border-collapse:collapse;">
+        <thead><tr><th style="padding:10px;text-align:left;">Select</th><th style="padding:10px;text-align:left;">#</th><th style="padding:10px;text-align:left;">Worker Name</th><th style="padding:10px;text-align:left;">Phone</th><th style="padding:10px;text-align:left;">Work Type</th><th style="padding:10px;text-align:right;">Fixed Payment</th></tr></thead>
+        <tbody>${group.workers.map((w,i)=>`<tr style="border-top:1px solid #e5e7eb;">
+            <td style="padding:10px;"><input type="checkbox" class="contractor-modal-worker" data-worker-id="${Number(w.workerId)}" onchange="updateContractorModalCompleteButton()"></td>
+            <td style="padding:10px;">${i+1}</td>
+            <td style="padding:10px;"><b>${escapeHtml(w.workerName||"")}</b></td>
+            <td style="padding:10px;">${escapeHtml(w.workerPhone||w.phone||"-")}</td>
+            <td style="padding:10px;">${escapeHtml(w.workType||"-")}</td>
+            <td style="padding:10px;text-align:right;">${formatMoney(w.salary)}</td>
+        </tr>`).join("")}</tbody></table></div>`;
+    updateContractorModalCompleteButton();
+    modal.classList.add("show");
+}
+
+function closeContractorWorkModal(){
+    const modal=document.getElementById("contractorWorkModal");
+    if(modal)modal.classList.remove("show");
+    currentContractorWorkSaleId=0;
+}
+
+function selectAllContractorModalWorkers(){
+    const boxes=[...document.querySelectorAll('#contractorWorkModal .contractor-modal-worker')];
+    if(!boxes.length)return;
+    boxes.forEach(cb=>cb.checked=true);
+    updateContractorModalCompleteButton();
+}
+
+function updateContractorModalCompleteButton(){
+    const button=document.getElementById("completeSelectedContractorModalBtn");
+    const count=document.querySelectorAll('#contractorWorkModal .contractor-modal-worker:checked').length;
+    if(button){button.disabled=count===0;button.textContent=count?`Completed Work (${count})`:"Completed Work";}
+}
+
+async function completeSelectedContractorModalWorkers(){
+    const selected=[...document.querySelectorAll('#contractorWorkModal .contractor-modal-worker:checked')].map(cb=>({workerId:Number(cb.dataset.workerId)}));
+    if(!currentContractorWorkSaleId||!selected.length)return;
+    const group=inProgressContractorGroups.find(g=>Number(g.saleId)===Number(currentContractorWorkSaleId));
+    const allSelected=group && selected.length===group.workers.length;
+    const message=allSelected?`Confirm all ${selected.length} workers completed?`:`Confirm ${selected.length} selected worker(s) completed?`;
     if(!confirm(message))return;
-    const body=workerId?{saleId:Number(saleId),workers:[{workerId:Number(workerId)}]}:{saleId:Number(saleId),workers:[]};
     try{
-        const result=await apiRequest("/data/contractor-assignments/complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-        if(!result||!result.ok)throw new Error(result?.error||"Could not complete work.");
-        showNotification("Work completed. Selected workers are available again.");
+        const result=await apiRequest('/data/contractor-assignments/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({saleId:Number(currentContractorWorkSaleId),workers:selected})});
+        if(!result||!result.ok)throw new Error(result?.error||'Could not complete selected work.');
+        showNotification("Completed work updated. Selected workers are available again.");
+        closeContractorWorkModal();
         await loadInProgressContractorAssignments();
         await loadContractorWorkersPool();
         await loadWorkers();
-        await loadContractorSalesHistory();
-    }catch(e){showNotification(e?.message||"Could not complete work.","warning");}
+    }catch(e){showNotification(e?.message||"Could not complete selected work.","warning");}
 }
 
 function formatContractorDate(value){
@@ -4853,10 +4905,86 @@ function generateContractorInvoice(data){
 }
 
 async function loadContractorDirectory(){
+    const table=document.getElementById("contractorsDirectoryTable");
+    const search=document.getElementById("contractorDirectorySearch")?.value.trim()||"";
+    const range=document.getElementById("contractorRangeFilter")?.value||"ALL";
+    const sort=document.getElementById("contractorDirectorySort")?.value||"name";
     try{
-        const data=await apiRequest("/data/contractors?sort=name");
+        const params=[];
+        if(search)params.push("search="+encodeURIComponent(search));
+        if(range&&range!=="ALL")params.push("range="+encodeURIComponent(range));
+        if(sort)params.push("sort="+encodeURIComponent(sort));
+        const data=await apiRequest("/data/contractors"+(params.length?"?"+params.join("&"):""));
         contractorDirectoryRows=Array.isArray(data.contractors)?data.contractors:[];
-    }catch(e){contractorDirectoryRows=[];}
+        if(!table)return;
+        if(!contractorDirectoryRows.length){table.innerHTML='<tr><td colspan="5" style="padding:30px;text-align:center;color:#6b7280;">No contractors found.</td></tr>';return;}
+        table.innerHTML=contractorDirectoryRows.map((c,i)=>`<tr>
+            <td>${i+1}</td><td><b>${escapeHtml(c.contractorName||"")}</b></td><td>${escapeHtml(c.phone||"")}</td>
+            <td>${escapeHtml(c.relationRange||"0 months")}</td>
+            <td><button type="button" class="secondary-btn" onclick="showContractorDirectoryDetails(${Number(c.contractorId)})">Details</button></td>
+        </tr>`).join("");
+    }catch(e){
+        contractorDirectoryRows=[];
+        if(table)table.innerHTML='<tr><td colspan="5" style="padding:25px;text-align:center;color:#dc2626;">Could not load contractors.</td></tr>';
+    }
+}
+
+function resetContractorDirectoryControls(){
+    const ids=["contractorDirectorySearch","contractorRangeFilter","contractorDirectorySort"];
+    const values=["","ALL","name"];
+    ids.forEach((id,i)=>{const el=document.getElementById(id);if(el)el.value=values[i];});
+    loadContractorDirectory();
+}
+
+function clearNewContractorForm(){
+    ["newContractorName","newContractorPhone","newContractorAddress","newContractorPurpose"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+    const date=document.getElementById("newContractorRelationStart");
+    if(date)date.value=new Date().toISOString().slice(0,10);
+}
+
+async function saveNewContractor(){
+    const contractorName=document.getElementById("newContractorName")?.value.trim()||"";
+    const phone=document.getElementById("newContractorPhone")?.value.trim()||"";
+    const address=document.getElementById("newContractorAddress")?.value.trim()||"";
+    const purpose=document.getElementById("newContractorPurpose")?.value.trim()||"";
+    const relationStartDate=document.getElementById("newContractorRelationStart")?.value||"";
+    if(!contractorName||!phone||!address||!relationStartDate){showNotification("Fill all required contractor fields.","warning");return;}
+    try{
+        const result=await apiRequest("/data/contractors/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contractorName,phone,address,purpose,relationStartDate})});
+        if(!result||!result.ok)throw new Error(result?.error||"Contractor could not be added.");
+        showNotification("Contractor added successfully.");
+        clearNewContractorForm();
+        await loadContractorDirectory();
+        await loadContractorWorkersPool();
+    }catch(e){showNotification(e?.message||"Contractor could not be added.","warning");}
+}
+
+async function showContractorDirectoryDetails(contractorId){
+    try{
+        const data=await apiRequest("/data/contractors/details?id="+encodeURIComponent(contractorId));
+        if(!data||!data.ok)throw new Error(data?.error||"Could not load contractor details.");
+        const c=data.contractor||{};
+        const sales=Array.isArray(data.sales)?data.sales:[];
+        const content=document.getElementById("contractorDetailsContent");
+        const modal=document.getElementById("contractorDetailsModal");
+        if(!content||!modal)return;
+        content.innerHTML=`<div class="contractor-detail-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px;">
+            <div style="padding:14px;background:#f8fafc;border-radius:10px;"><small>Name</small><div><b>${escapeHtml(c.contractorName||"-")}</b></div></div>
+            <div style="padding:14px;background:#f8fafc;border-radius:10px;"><small>Phone</small><div><b>${escapeHtml(c.phone||"-")}</b></div></div>
+            <div style="padding:14px;background:#f8fafc;border-radius:10px;"><small>Relationship Range</small><div><b>${escapeHtml(c.relationRange||"0 months")}</b></div></div>
+            <div style="padding:14px;background:#f8fafc;border-radius:10px;"><small>Relationship Start</small><div>${escapeHtml(c.relationStartDate||"-")}</div></div>
+            <div style="padding:14px;background:#f8fafc;border-radius:10px;"><small>Address</small><div>${escapeHtml(c.address||"-")}</div></div>
+            <div style="padding:14px;background:#f8fafc;border-radius:10px;"><small>Purpose / Work Type</small><div>${escapeHtml(c.purpose||"-")}</div></div>
+        </div>
+        <h3 style="margin:12px 0;">Service Details</h3>
+        <div class="table-wrapper"><table style="min-width:650px;"><thead><tr><th>#</th><th>Date</th><th>Workers</th><th>Purpose</th><th>Total Amount</th></tr></thead><tbody>${sales.length?sales.map((sale,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(formatContractorDate(sale.saleDate))}</td><td>${Number(sale.totalWorkers||0)}</td><td>${escapeHtml(sale.purpose||"-")}</td><td>${formatMoney(sale.totalAmount)}</td></tr>`).join(""):'<tr><td colspan="5" style="padding:25px;text-align:center;color:#6b7280;">No service records yet.</td></tr>'}</tbody></table></div>`;
+        modal.classList.add("show");
+    }catch(e){showNotification(e?.message||"Could not load contractor details.","warning");}
+}
+
+function closeContractorDetailsModal(){
+    const modal=document.getElementById("contractorDetailsModal");
+    if(modal)modal.classList.remove("show");
 }
 
 function contractorOptionsHtml(selectedId){

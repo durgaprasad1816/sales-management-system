@@ -42,6 +42,7 @@ public final class SchemaInitializer {
                     "phone VARCHAR(50) NOT NULL," +
                     "address VARCHAR(300)," +
                     "purpose VARCHAR(200)," +
+                    "relation_start_date DATE NULL," +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
                     "INDEX idx_contractors_phone(phone), INDEX idx_contractors_name(contractor_name)" +
                     ") ENGINE=InnoDB");
@@ -63,6 +64,10 @@ public final class SchemaInitializer {
             ensureColumn(c, "workers", "skills", "TEXT");
             ensureColumn(c, "workers", "aadhar_number", "VARCHAR(30)");
             ensureColumn(c, "workers", "aadhar_image", "LONGTEXT");
+            ensureColumn(c, "contractors", "relation_start_date", "DATE NULL");
+            try (Statement fix = c.createStatement()) {
+                fix.executeUpdate("UPDATE contractors SET relation_start_date=DATE(created_at) WHERE relation_start_date IS NULL");
+            }
 
             st.executeUpdate("CREATE TABLE IF NOT EXISTS contractor_sales (" +
                     "sale_id INT AUTO_INCREMENT PRIMARY KEY," +

@@ -63,7 +63,7 @@
 
         <button class="nav-item" onclick="showPage('contractor', this)">
             <span>🏗️</span>
-            Contracters
+            Contractors
         </button>
 
         <button class="nav-item" onclick="showPage('worker', this)">
@@ -103,10 +103,6 @@
         <div class="topbar-right">
 
             <span class="date" id="currentDate"></span>
-
-            <button class="refresh-btn" onclick="loadDashboard()">
-                ↻ Refresh
-            </button>
 
         </div>
 
@@ -863,50 +859,44 @@
         <div id="customerDetailsSection" style="margin-top:20px;"></div>
     </section>
 
-    <!-- CONTRACTER PAGE -->
+    <!-- CONTRACTOR PAGE -->
     <section id="contractorPage" class="page">
         <div class="page-toolbar">
-            <div><h2>Contracters</h2><p>Assign available workers, create service sales and track contractor history</p></div>
+            <div><h2>Contractors</h2><p>Manage contractor details, relationship range and in-progress work</p></div>
         </div>
 
         <div class="dashboard-card">
-            <div class="section-header"><div><h2>Contracter Details</h2><p>Phone-first lookup fills an existing contracter automatically.</p></div></div>
+            <div class="section-header"><div><h2>Add Contractor</h2><p>Add a contractor and record the date the business relationship started.</p></div></div>
             <div class="form-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 28px !important;">
-                <div class="form-group"><label>Phone <span class="required-star">*</span></label><input id="contractorPhone" type="text" placeholder="Enter phone number" autocomplete="off" oninput="suggestContractors()" required><div id="contractorSuggestions" style="position:relative;z-index:50;"></div></div>
-                <div class="form-group"><label>Contracter Name <span class="required-star">*</span></label><input id="contractorName" type="text" placeholder="Contracter name" required></div>
-                <div class="form-group"><label>Address</label><input id="contractorAddress" type="text" placeholder="Address"></div>
-                <div class="form-group"><label>Purpose</label><input id="contractorPurpose" type="text" placeholder="Cleaning / Plumbing / Electrical work"></div>
-                <div class="form-group"><label>No. of Workers</label><input id="contractorWorkerCount" type="number" value="0" readonly></div>
-                <div class="form-group"><label>Total Amount</label><input id="contractorTotalAmount" type="text" value="₹0.00" readonly></div>
+                <div class="form-group"><label>Contractor Name <span class="required-star">*</span></label><input id="newContractorName" type="text" placeholder="Contractor name" required></div>
+                <div class="form-group"><label>Phone Number <span class="required-star">*</span></label><input id="newContractorPhone" type="text" placeholder="Phone number" required></div>
+                <div class="form-group"><label>Relationship Start Date <span class="required-star">*</span></label><input id="newContractorRelationStart" type="date" required></div>
+                <div class="form-group"><label>Address <span class="required-star">*</span></label><input id="newContractorAddress" type="text" placeholder="Address" required></div>
+                <div class="form-group"><label>Purpose / Work Type</label><input id="newContractorPurpose" type="text" placeholder="Plumbing / Electrical / General work"></div>
             </div>
-        </div>
-
-        <div class="dashboard-card">
-            <div class="section-header"><div><h2>Assign Workers</h2><p>Select work type first, then select an available worker. Use the worker status filters to view available or assigned workers.</p></div><button class="secondary-btn" type="button" onclick="addContractorWorkerRow()">+ Add Worker</button></div>
-            <div id="contractorWorkerRows"></div>
             <div class="form-actions">
-                <button type="button" class="secondary-btn" onclick="clearContractorForm()">Clear</button>
-                <button type="button" class="primary-btn" onclick="generateContractorSale()">Generate Sale & Invoice</button>
+                <button type="button" class="secondary-btn" onclick="clearNewContractorForm()">Clear</button>
+                <button type="button" class="primary-btn" onclick="saveNewContractor()">Add Contractor</button>
             </div>
         </div>
 
         <div class="dashboard-card">
-            <div class="section-header"><div><h2>In-Progress Contractor Work</h2><p>Complete one worker or complete all workers for a contractor service.</p></div><button type="button" class="secondary-btn" onclick="loadInProgressContractorAssignments()">Refresh</button></div>
+            <div class="section-header"><div><h2>All Contractors</h2><p>Search, sort and filter contractors by relationship range.</p></div></div>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;">
+                <div class="search-box" style="flex:1;min-width:220px;margin-bottom:0;"><span>🔍</span><input id="contractorDirectorySearch" type="text" placeholder="Search contractor / phone..." oninput="loadContractorDirectory()"></div>
+                <select id="contractorRangeFilter" onchange="loadContractorDirectory()" style="min-width:160px;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;"><option value="ALL">All Ranges</option><option value="0-1">Less than 1 year</option><option value="1-3">1 - 3 years</option><option value="3-5">3 - 5 years</option><option value="5+">5+ years</option></select>
+                <select id="contractorDirectorySort" onchange="loadContractorDirectory()" style="min-width:170px;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;"><option value="name">Sort: Name</option><option value="relation">Sort: Relationship</option><option value="services">Sort: Services</option><option value="amount">Sort: Amount</option><option value="date">Sort: Last Service</option></select>
+                <button type="button" class="secondary-btn" onclick="resetContractorDirectoryControls()">Reset</button>
+            </div>
+            <div class="table-wrapper"><table style="min-width:850px;"><thead><tr><th>#</th><th>Contractor Name</th><th>Phone</th><th>Range</th><th>Details</th></tr></thead><tbody id="contractorsDirectoryTable"><tr><td colspan="5" class="loading">Loading contractors...</td></tr></tbody></table></div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="section-header"><div><h2>In-Progress Contractor Work</h2><p>Select a contractor to view assigned workers. Complete all workers or only the workers whose work is finished.</p></div></div>
             <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;">
                 <div class="search-box" style="flex:1;min-width:220px;margin-bottom:0;"><span>🔍</span><input id="inProgressContractorSearch" type="text" placeholder="Search contractor / phone..." oninput="loadInProgressContractorAssignments()"></div>
             </div>
-            <div class="table-wrapper"><table style="min-width:1180px;"><thead><tr><th>Select</th><th>#</th><th>Contracter</th><th>Phone</th><th>Work Date</th><th>Worker</th><th>Work Type</th><th>Payment</th><th>Action</th></tr></thead><tbody id="inProgressContractorTable"><tr><td colspan="8" class="loading">Loading in-progress work...</td></tr></tbody></table></div>
-        </div>
-
-        <div class="dashboard-card">
-            <div class="section-header"><div><h2>Contracter Service History</h2><p>Date-wise service count, amount and details.</p></div></div>
-            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px;">
-                <div class="search-box" style="flex:1;min-width:220px;margin-bottom:0;"><span>🔍</span><input id="contractorHistorySearch" type="text" placeholder="Search contracter / phone..." oninput="loadContractorSalesHistory()"></div>
-                <input id="contractorHistoryDate" type="date" onchange="loadContractorSalesHistory()" style="padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;">
-                <select id="contractorHistorySort" onchange="renderContractorSalesHistory()" style="min-width:160px;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;"><option value="date">Sort: Date</option><option value="services">Sort: Services</option><option value="amount">Sort: Amount</option><option value="name">Sort: Name</option></select>
-                <button type="button" class="secondary-btn" onclick="resetContractorHistoryControls()">Reset</button>
-            </div>
-            <div class="table-wrapper"><table style="min-width:900px;"><thead><tr><th>#</th><th>Date</th><th>Contracter</th><th>Phone</th><th>Services on Date</th><th>Total Amount</th><th>Action</th></tr></thead><tbody id="contractorHistoryTable"><tr><td colspan="7" class="loading">Loading service history...</td></tr></tbody></table></div>
+            <div class="table-wrapper"><table style="min-width:850px;"><thead><tr><th>Select</th><th>#</th><th>Contractor</th><th>Phone</th><th>Date</th><th>Workers</th><th>Action</th></tr></thead><tbody id="inProgressContractorTable"><tr><td colspan="7" class="loading">Loading in-progress work...</td></tr></tbody></table></div>
         </div>
     </section>
 
@@ -915,7 +905,7 @@
         <div class="page-toolbar"><div><h2>Workers</h2><p>Store worker details, fixed payment and current assignment status</p></div></div>
 
         <div class="dashboard-card">
-            <div class="section-header"><div><h2>Add Worker</h2><p>Salary is the fixed payment used automatically on the Contracters page.</p></div></div>
+            <div class="section-header"><div><h2>Add Worker</h2><p>Salary is the fixed payment used automatically when assigning workers to contractors.</p></div></div>
             <div class="form-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 28px !important;">
                 <div class="form-group"><label>Worker Name <span class="required-star">*</span></label><input id="workerName" type="text" placeholder="Worker name" required></div>
                 <div class="form-group"><label>Phone Number <span class="required-star">*</span></label><input id="workerPhone" type="text" placeholder="Phone number" required></div>
@@ -1049,6 +1039,39 @@
 
 </main>
 
+
+<!-- =====================================================
+     CONTRACTOR DETAILS MODAL
+====================================================== -->
+<div id="contractorDetailsModal" class="modal">
+    <div class="modal-content" style="max-width:900px;">
+        <div class="modal-header">
+            <div><h2>Contractor Details</h2><p>Relationship information and contractor service details.</p></div>
+            <button class="close-btn" onclick="closeContractorDetailsModal()">×</button>
+        </div>
+        <div id="contractorDetailsContent"></div>
+    </div>
+</div>
+
+<!-- =====================================================
+     IN-PROGRESS CONTRACTOR WORK MODAL
+====================================================== -->
+<div id="contractorWorkModal" class="modal">
+    <div class="modal-content" style="max-width:1000px;">
+        <div class="modal-header">
+            <div><h2 id="contractorWorkModalTitle">Contractor Work</h2><p id="contractorWorkModalSubtitle">Select completed workers.</p></div>
+            <button class="close-btn" onclick="closeContractorWorkModal()">×</button>
+        </div>
+        <div id="contractorWorkModalContent"></div>
+        <div class="form-actions" style="justify-content:space-between;">
+            <button type="button" class="secondary-btn" onclick="selectAllContractorModalWorkers()">Select All</button>
+            <div style="display:flex;gap:10px;">
+                <button type="button" class="secondary-btn" onclick="closeContractorWorkModal()">Cancel</button>
+                <button type="button" class="primary-btn" id="completeSelectedContractorModalBtn" onclick="completeSelectedContractorModalWorkers()" disabled>Completed Work</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- =====================================================
      NEW PDF PRODUCTS MODAL

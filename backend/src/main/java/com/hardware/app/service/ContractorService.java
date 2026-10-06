@@ -141,9 +141,10 @@ public class ContractorService {
         StringBuilder json = new StringBuilder("{\"ok\":true,\"assignments\":[");
         try (Connection c = DatabaseConfig.getConnection()) {
             String sql = "SELECT cs.sale_id,c.contractor_id,c.contractor_name,c.phone,c.address,c.purpose,cs.sale_date, " +
-                    "csw.assignment_id,csw.worker_id,csw.worker_name,csw.work_type,csw.salary,csw.assignment_status " +
+                    "csw.assignment_id,csw.worker_id,csw.worker_name,csw.work_type,csw.salary,csw.assignment_status,w.phone worker_phone " +
                     "FROM contractor_sales cs JOIN contractors c ON c.contractor_id=cs.contractor_id " +
                     "JOIN contractor_sale_workers csw ON csw.sale_id=cs.sale_id " +
+                    "JOIN workers w ON w.worker_id=csw.worker_id " +
                     "WHERE csw.assignment_status='IN_PROGRESS' " +
                     "AND (?='' OR c.contractor_name LIKE ? OR c.phone LIKE ?) " +
                     "ORDER BY c.contractor_name ASC,cs.sale_id DESC,csw.assignment_id ASC";
@@ -192,10 +193,14 @@ public class ContractorService {
     }
 
     public String getContractors(String search, String sort) {
+        return getContractors(search, sort, "");
+    }
+
+    public String getContractors(String search, String sort, String range) {
         StringBuilder json = new StringBuilder("{\"ok\":true,\"contractors\":[");
         try (Connection c = DatabaseConfig.getConnection()) {
             StringBuilder sql = new StringBuilder(
-                    "SELECT c.contractor_id,c.contractor_name,c.phone,c.address,c.purpose,COUNT(cs.sale_id) service_count, " +
+                    "SELECT c.contractor_id,c.contractor_name,c.phone,c.address,c.purpose,c.relation_start_date,c.created_at,COUNT(cs.sale_id) service_count, " +
                     "COALESCE(SUM(cs.total_amount),0) total_amount,MAX(cs.sale_date) last_service " +
                     "FROM contractors c LEFT JOIN contractor_sales cs ON cs.contractor_id=c.contractor_id ");
             List<String> params = new ArrayList<>();
@@ -203,10 +208,17 @@ public class ContractorService {
                 sql.append("WHERE (c.contractor_name LIKE ? OR c.phone LIKE ?) ");
                 params.add("%" + search + "%"); params.add("%" + search + "%");
             }
+            if (range != null && !range.isBlank() && !range.equalsIgnoreCase("ALL")) {
+                if ("0-1".equals(range)) sql.append(searchOrWhere(sql) + "TIMESTAMPDIFF(YEAR, COALESCE(c.relation_start_date, DATE(c.created_at)), CURRENT_DATE) < 1 ");
+                else if ("1-3".equals(range)) sql.append(searchOrWhere(sql) + "TIMESTAMPDIFF(YEAR, COALESCE(c.relation_start_date, DATE(c.created_at)), CURRENT_DATE) >= 1 AND TIMESTAMPDIFF(YEAR, COALESCE(c.relation_start_date, DATE(c.created_at)), CURRENT_DATE) < 3 ");
+                else if ("3-5".equals(range)) sql.append(searchOrWhere(sql) + "TIMESTAMPDIFF(YEAR, COALESCE(c.relation_start_date, DATE(c.created_at)), CURRENT_DATE) >= 3 AND TIMESTAMPDIFF(YEAR, COALESCE(c.relation_start_date, DATE(c.created_at)), CURRENT_DATE) < 5 ");
+                else if ("5+".equals(range)) sql.append(searchOrWhere(sql) + "TIMESTAMPDIFF(YEAR, COALESCE(c.relation_start_date, DATE(c.created_at)), CURRENT_DATE) >= 5 ");
+            }
             sql.append("GROUP BY c.contractor_id ");
             if ("services".equalsIgnoreCase(sort)) sql.append("ORDER BY service_count DESC, c.contractor_name ASC");
             else if ("amount".equalsIgnoreCase(sort)) sql.append("ORDER BY total_amount DESC, c.contractor_name ASC");
             else if ("date".equalsIgnoreCase(sort)) sql.append("ORDER BY last_service DESC, c.contractor_name ASC");
+            else if ("relation".equalsIgnoreCase(sort)) sql.append("ORDER BY COALESCE(c.relation_start_date, DATE(c.created_at)) ASC, c.contractor_name ASC");
             else sql.append("ORDER BY c.contractor_name ASC");
             try (PreparedStatement ps = c.prepareStatement(sql.toString())) {
                 for (int i=0;i<params.size();i++) ps.setString(i+1,params.get(i));
@@ -220,6 +232,9 @@ public class ContractorService {
                                 .append("\"phone\":\"").append(e(r.getString("phone"))).append("\",")
                                 .append("\"address\":\"").append(e(r.getString("address"))).append("\",")
                                 .append("\"purpose\":\"").append(e(r.getString("purpose"))).append("\",")
+                                .append("\"relationStartDate\":\"").append(e(String.valueOf(r.getDate("relation_start_date") != null ? r.getDate("relation_start_date") : new java.sql.Date(r.getTimestamp("created_at").getTime())))).append("\",")
+                                .append("\"relationYears\":").append(relationYears(r.getDate("relation_start_date"), r.getTimestamp("created_at"))).append(',')
+                                .append("\"relationRange\":\"").append(e(relationRange(r.getDate("relation_start_date"), r.getTimestamp("created_at")))).append("\",")
                                 .append("\"serviceCount\":").append(r.getInt("service_count")).append(',')
                                 .append("\"totalAmount\":").append(r.getDouble("total_amount")).append(',')
                                 .append("\"lastService\":\"").append(e(String.valueOf(r.getTimestamp("last_service")))).append("\"}");
@@ -230,10 +245,30 @@ public class ContractorService {
         return json.append("]}").toString();
     }
 
+    public String addContractor(String json) {
+        String name = getString(json, "contractorName");
+        String phone = getString(json, "phone");
+        String address = getString(json, "address");
+        String purpose = getString(json, "purpose");
+        String relationStartDate = getString(json, "relationStartDate");
+        if (name.isBlank() || phone.isBlank()) return err("Contractor name and phone are required.");
+        if (relationStartDate.isBlank()) relationStartDate = LocalDate.now().toString();
+        try (Connection c = DatabaseConfig.getConnection()) {
+            try (PreparedStatement check = c.prepareStatement("SELECT contractor_id FROM contractors WHERE phone=? LIMIT 1")) {
+                check.setString(1, phone);
+                try (ResultSet r = check.executeQuery()) { if (r.next()) return err("A contractor with this phone number already exists."); }
+            }
+            try (PreparedStatement ps = c.prepareStatement("INSERT INTO contractors(contractor_name,phone,address,purpose,relation_start_date) VALUES(?,?,?,?,?)", Statement.RETURN_GENERATED_KEYS)) {
+                ps.setString(1, name); ps.setString(2, phone); ps.setString(3, address); ps.setString(4, purpose); ps.setString(5, relationStartDate); ps.executeUpdate();
+                try (ResultSet k = ps.getGeneratedKeys()) { int id = k.next() ? k.getInt(1) : 0; return "{\"ok\":true,\"contractorId\":" + id + "}"; }
+            }
+        } catch (Exception ex) { return err(ex.getMessage()); }
+    }
+
     public String getContractorDetails(int id) {
         try (Connection c = DatabaseConfig.getConnection()) {
             StringBuilder json = new StringBuilder("{\"ok\":true,\"contractor\":");
-            try (PreparedStatement ps=c.prepareStatement("SELECT contractor_id,contractor_name,phone,address,purpose FROM contractors WHERE contractor_id=?")) {
+            try (PreparedStatement ps=c.prepareStatement("SELECT contractor_id,contractor_name,phone,address,purpose,relation_start_date,created_at FROM contractors WHERE contractor_id=?")) {
                 ps.setInt(1,id);
                 try(ResultSet r=ps.executeQuery()) {
                     if(!r.next()) return err("Contractor not found.");
@@ -241,7 +276,10 @@ public class ContractorService {
                             .append("\"contractorName\":\"").append(e(r.getString(2))).append("\",")
                             .append("\"phone\":\"").append(e(r.getString(3))).append("\",")
                             .append("\"address\":\"").append(e(r.getString(4))).append("\",")
-                            .append("\"purpose\":\"").append(e(r.getString(5))).append("\"},\"sales\":[");
+                            .append("\"purpose\":\"").append(e(r.getString(5))).append("\",")
+                            .append("\"relationStartDate\":\"").append(e(String.valueOf(r.getDate(6) != null ? r.getDate(6) : new java.sql.Date(r.getTimestamp(7).getTime())))).append("\",")
+                            .append("\"relationYears\":").append(relationYears(r.getDate(6), r.getTimestamp(7))).append(',')
+                            .append("\"relationRange\":\"").append(e(relationRange(r.getDate(6), r.getTimestamp(7)))).append("\"},\"sales\":[");
                 }
             }
             try(PreparedStatement ps=c.prepareStatement("SELECT sale_id,sale_date,total_workers,total_amount,purpose FROM contractor_sales WHERE contractor_id=? ORDER BY sale_date DESC,sale_id DESC")) {
@@ -340,7 +378,7 @@ public class ContractorService {
                     }
                 } else {
                     try(PreparedStatement ps=c.prepareStatement("SELECT contractor_id FROM contractors WHERE phone=? LIMIT 1")){ps.setString(1,phone);try(ResultSet r=ps.executeQuery()){if(r.next())contractorId=r.getInt(1);}}
-                    if(contractorId==0){try(PreparedStatement ps=c.prepareStatement("INSERT INTO contractors(contractor_name,phone,address,purpose) VALUES(?,?,?,?)",Statement.RETURN_GENERATED_KEYS)){ps.setString(1,name);ps.setString(2,phone);ps.setString(3,address);ps.setString(4,purpose);ps.executeUpdate();try(ResultSet k=ps.getGeneratedKeys()){if(k.next())contractorId=k.getInt(1);}}}
+                    if(contractorId==0){try(PreparedStatement ps=c.prepareStatement("INSERT INTO contractors(contractor_name,phone,address,purpose,relation_start_date) VALUES(?,?,?,?,?)",Statement.RETURN_GENERATED_KEYS)){ps.setString(1,name);ps.setString(2,phone);ps.setString(3,address);ps.setString(4,purpose);ps.setString(5,LocalDate.now().toString());ps.executeUpdate();try(ResultSet k=ps.getGeneratedKeys()){if(k.next())contractorId=k.getInt(1);}}}
                     else {try(PreparedStatement ps=c.prepareStatement("UPDATE contractors SET contractor_name=?,address=?,purpose=? WHERE contractor_id=?")){ps.setString(1,name);ps.setString(2,address);ps.setString(3,purpose);ps.setInt(4,contractorId);ps.executeUpdate();}}
                 }
                 Set<Integer> seen=new HashSet<>(); double total=0;
@@ -354,6 +392,30 @@ public class ContractorService {
                 c.commit(); return "{\"ok\":true,\"saleId\":"+saleId+",\"totalAmount\":"+total+"}";
             }catch(Exception ex){c.rollback();return err(ex.getMessage());}finally{c.setAutoCommit(true);}
         }catch(Exception ex){return err(ex.getMessage());}
+    }
+
+    private static String searchOrWhere(StringBuilder sql) {
+        return sql.indexOf("WHERE") >= 0 ? "AND " : "WHERE ";
+    }
+
+    private static LocalDate relationStart(java.sql.Date relationStartDate, Timestamp createdAt) {
+        if (relationStartDate != null) return relationStartDate.toLocalDate();
+        if (createdAt != null) return createdAt.toLocalDateTime().toLocalDate();
+        return LocalDate.now();
+    }
+
+    private static long relationYears(java.sql.Date relationStartDate, Timestamp createdAt) {
+        LocalDate start = relationStart(relationStartDate, createdAt);
+        return java.time.Period.between(start, LocalDate.now()).getYears();
+    }
+
+    private static String relationRange(java.sql.Date relationStartDate, Timestamp createdAt) {
+        LocalDate start = relationStart(relationStartDate, createdAt);
+        java.time.Period p = java.time.Period.between(start, LocalDate.now());
+        int years = p.getYears();
+        int months = p.getMonths();
+        if (years <= 0) return months + (months == 1 ? " month" : " months");
+        return years + (years == 1 ? " year" : " years") + (months > 0 ? " " + months + " month" + (months == 1 ? "" : "s") : "");
     }
 
     private static String getString(String json,String key){String marker="\""+key+"\"";int p=json.indexOf(marker);if(p<0)return "";p=json.indexOf(':',p+marker.length());if(p<0)return "";p++;while(p<json.length()&&Character.isWhitespace(json.charAt(p)))p++;if(p>=json.length()||json.charAt(p)!='\"')return "";p++;StringBuilder s=new StringBuilder();boolean esc=false;for(;p<json.length();p++){char ch=json.charAt(p);if(esc){s.append(ch);esc=false;}else if(ch=='\\')esc=true;else if(ch=='\"')break;else s.append(ch);}return s.toString();}
