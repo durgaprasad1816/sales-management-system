@@ -166,6 +166,7 @@ public class HardwareHttpServer {
         // ==============================
 
         server.createContext("/data/workers", this::handleWorkers);
+        server.createContext("/data/workers/details", this::handleWorkerDetails);
         server.createContext("/data/workers/add", this::handleAddWorker);
         server.createContext("/data/workers/active", this::handleWorkerActive);
         server.createContext("/data/workers/complete", this::handleWorkerComplete);
@@ -1149,6 +1150,12 @@ public class HardwareHttpServer {
             sendJson(exchange, 405, "{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return;
         }
         try { String q=exchange.getRequestURI().getQuery(); sendJson(exchange,200,contractorService.getWorkers(getQueryParameter(q,"search"),getQueryParameter(q,"workType"),getQueryParameter(q,"status"),getQueryParameter(q,"sort"))); }
+        catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
+    }
+
+    private void handleWorkerDetails(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) { sendJson(exchange,405,"{\"ok\":false,\"error\":\"Method Not Allowed\"}"); return; }
+        try { sendJson(exchange,200,contractorService.getWorkerDetails(getQueryInt(exchange.getRequestURI().getQuery(),"id"))); }
         catch(Exception e){e.printStackTrace();sendJson(exchange,500,errorJson(e));}
     }
 

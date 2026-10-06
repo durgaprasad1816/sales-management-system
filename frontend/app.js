@@ -4919,7 +4919,7 @@ async function loadContractorDirectory(){
         if(!table)return;
         if(!contractorDirectoryRows.length){table.innerHTML='<tr><td colspan="5" style="padding:30px;text-align:center;color:#6b7280;">No contractors found.</td></tr>';return;}
         table.innerHTML=contractorDirectoryRows.map((c,i)=>`<tr>
-            <td>${i+1}</td><td><b>${escapeHtml(c.contractorName||"")}</b></td><td>${escapeHtml(c.phone||"")}</td>
+            <td>${i+1}</td><td><span class="person-name-link" role="button" tabindex="0" onclick="showContractorDirectoryDetails(${Number(c.contractorId)})" onkeydown="if(event.key==='Enter'||event.key===' ')showContractorDirectoryDetails(${Number(c.contractorId)})">${escapeHtml(c.contractorName||"")}</span></td><td>${escapeHtml(c.phone||"")}</td>
             <td>${escapeHtml(c.relationRange||"0 months")}</td>
             <td><button type="button" class="secondary-btn" onclick="showContractorDirectoryDetails(${Number(c.contractorId)})">Details</button></td>
         </tr>`).join("");
@@ -4968,13 +4968,13 @@ async function showContractorDirectoryDetails(contractorId){
         const content=document.getElementById("contractorDetailsContent");
         const modal=document.getElementById("contractorDetailsModal");
         if(!content||!modal)return;
-        content.innerHTML=`<div class="contractor-detail-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px;">
-            <div style="padding:14px;background:#f8fafc;border-radius:10px;"><small>Name</small><div><b>${escapeHtml(c.contractorName||"-")}</b></div></div>
-            <div style="padding:14px;background:#f8fafc;border-radius:10px;"><small>Phone</small><div><b>${escapeHtml(c.phone||"-")}</b></div></div>
-            <div style="padding:14px;background:#f8fafc;border-radius:10px;"><small>Relationship Range</small><div><b>${escapeHtml(c.relationRange||"0 months")}</b></div></div>
-            <div style="padding:14px;background:#f8fafc;border-radius:10px;"><small>Relationship Start</small><div>${escapeHtml(c.relationStartDate||"-")}</div></div>
-            <div style="padding:14px;background:#f8fafc;border-radius:10px;"><small>Address</small><div>${escapeHtml(c.address||"-")}</div></div>
-            <div style="padding:14px;background:#f8fafc;border-radius:10px;"><small>Purpose / Work Type</small><div>${escapeHtml(c.purpose||"-")}</div></div>
+        content.innerHTML=`<div class="contractor-detail-popup-grid" style="margin-bottom:18px;">
+            <div class="contractor-detail-popup-item"><small>Name</small><div><b>${escapeHtml(c.contractorName||"-")}</b></div></div>
+            <div class="contractor-detail-popup-item"><small>Phone</small><div><b>${escapeHtml(c.phone||"-")}</b></div></div>
+            <div class="contractor-detail-popup-item"><small>Relationship Range</small><div><b>${escapeHtml(c.relationRange||"0 months")}</b></div></div>
+            <div class="contractor-detail-popup-item"><small>Relationship Start</small><div>${escapeHtml(c.relationStartDate||"-")}</div></div>
+            <div class="contractor-detail-popup-item"><small>Address</small><div>${escapeHtml(c.address||"-")}</div></div>
+            <div class="contractor-detail-popup-item"><small>Purpose / Work Type</small><div>${escapeHtml(c.purpose||"-")}</div></div>
         </div>
         <h3 style="margin:12px 0;">Service Details</h3>
         <div class="table-wrapper"><table style="min-width:650px;"><thead><tr><th>#</th><th>Date</th><th>Workers</th><th>Purpose</th><th>Total Amount</th></tr></thead><tbody>${sales.length?sales.map((sale,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(formatContractorDate(sale.saleDate))}</td><td>${Number(sale.totalWorkers||0)}</td><td>${escapeHtml(sale.purpose||"-")}</td><td>${formatMoney(sale.totalAmount)}</td></tr>`).join(""):'<tr><td colspan="5" style="padding:25px;text-align:center;color:#6b7280;">No service records yet.</td></tr>'}</tbody></table></div>`;
@@ -5017,9 +5017,46 @@ async function loadWorkers(){
         table.innerHTML=rows.map((w,i)=>{
             const available=String(w.status).toUpperCase()!=="IN_PROGRESS"&&w.active;
             const assignControls=available?`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><select id="workerContractor_${Number(w.workerId)}" style="min-width:190px;max-width:220px;">${contractorOptionsHtml("")}</select><button type="button" class="secondary-btn" onclick="assignSingleWorker(${Number(w.workerId)})">Assign</button></div>`:(w.status==='IN_PROGRESS'?'<span style="color:#dc2626;font-weight:600;">Assigned</span>':'<span style="color:#6b7280;">Inactive</span>');
-            return `<tr><td><input class="worker-select-checkbox" type="checkbox" id="workerSelect_${Number(w.workerId)}" ${available?'':'disabled'}></td><td>${i+1}</td><td>${contractorStatusDot(w.status)}<b>${escapeHtml(w.workerName||"")}</b></td><td>${escapeHtml(w.phone||"")}</td><td>${escapeHtml(w.workType||"")}</td><td>${formatMoney(w.salary)}</td><td>${assignControls}</td></tr>`;
+            return `<tr><td><input class="worker-select-checkbox" type="checkbox" id="workerSelect_${Number(w.workerId)}" ${available?'':'disabled'}></td><td>${i+1}</td><td>${contractorStatusDot(w.status)}<span class="person-name-link" role="button" tabindex="0" onclick="showWorkerDetails(${Number(w.workerId)})" onkeydown="if(event.key==='Enter'||event.key===' ')showWorkerDetails(${Number(w.workerId)})">${escapeHtml(w.workerName||"")}</span></td><td>${escapeHtml(w.phone||"")}</td><td>${escapeHtml(w.workType||"")}</td><td>${formatMoney(w.salary)}</td><td>${assignControls}</td></tr>`;
         }).join("");
     }catch(e){table.innerHTML='<tr><td colspan="7" style="padding:25px;text-align:center;color:#dc2626;">Could not load workers.</td></tr>';}
+}
+
+async function showWorkerDetails(workerId){
+    const modal=document.getElementById("workerDetailsModal");
+    const content=document.getElementById("workerDetailsContent");
+    if(!modal||!content)return;
+    content.innerHTML='<div style="padding:30px;text-align:center;color:#6b7280;">Loading worker details...</div>';
+    modal.classList.add("show");
+    try{
+        const data=await apiRequest("/data/workers/details?id="+encodeURIComponent(Number(workerId)));
+        if(!data||!data.ok)throw new Error(data?.error||"Could not load worker details.");
+        const w=data.worker||{};
+        const image=String(w.aadharImage||"");
+        const imageHtml=image.startsWith("data:image/")
+            ? `<img class="worker-detail-image" src="${image}" alt="Aadhar image of ${escapeHtml(w.workerName||"worker")}">`
+            : '<div class="worker-detail-placeholder">Aadhar image not available</div>';
+        content.innerHTML=`<div class="worker-detail-layout">
+            <div>${imageHtml}</div>
+            <div class="worker-detail-grid">
+                <div class="worker-detail-item"><small>Name</small><b>${escapeHtml(w.workerName||"-")}</b></div>
+                <div class="worker-detail-item"><small>Phone</small><b>${escapeHtml(w.phone||"-")}</b></div>
+                <div class="worker-detail-item"><small>Address</small><div>${escapeHtml(w.address||"-")}</div></div>
+                <div class="worker-detail-item"><small>Aadhar Number</small><b>${escapeHtml(w.aadharNumber||"-")}</b></div>
+                <div class="worker-detail-item"><small>Work Type</small><div>${escapeHtml(w.workType||"-")}</div></div>
+                <div class="worker-detail-item"><small>Fixed Payment</small><b>${formatMoney(w.salary)}</b></div>
+                <div class="worker-detail-item"><small>Status</small><b>${escapeHtml(w.active?"Active":"Inactive")}</b></div>
+            </div>
+        </div>`;
+    }catch(e){
+        content.innerHTML='<div style="padding:25px;text-align:center;color:#dc2626;">Could not load worker details.</div>';
+        showNotification(e?.message||"Could not load worker details.","warning");
+    }
+}
+
+function closeWorkerDetailsModal(){
+    const modal=document.getElementById("workerDetailsModal");
+    if(modal)modal.classList.remove("show");
 }
 
 async function assignSingleWorker(workerId){
@@ -5137,6 +5174,8 @@ window.closeContractorHistoryModal=closeContractorHistoryModal;
 window.generateContractorInvoiceFromHistory=generateContractorInvoiceFromHistory;
 window.generateContractorInvoice=generateContractorInvoice;
 window.loadWorkers=loadWorkers;
+window.showWorkerDetails=showWorkerDetails;
+window.closeWorkerDetailsModal=closeWorkerDetailsModal;
 window.saveWorker=saveWorker;
 window.clearWorkerForm=clearWorkerForm;
 window.toggleWorkerActive=toggleWorkerActive;

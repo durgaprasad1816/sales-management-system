@@ -78,6 +78,29 @@ public class ContractorService {
         return json.append("]}").toString();
     }
 
+    public String getWorkerDetails(int id) {
+        if (id <= 0) return err("Invalid worker id.");
+        try (Connection c = DatabaseConfig.getConnection();
+             PreparedStatement ps = c.prepareStatement(
+                     "SELECT worker_id,worker_name,phone,work_type,address,salary,aadhar_number,aadhar_image,active FROM workers WHERE worker_id=?")) {
+            ps.setInt(1, id);
+            try (ResultSet r = ps.executeQuery()) {
+                if (!r.next()) return err("Worker not found.");
+                String image = r.getString("aadhar_image");
+                return "{\"ok\":true,\"worker\":{" +
+                        "\"workerId\":" + r.getInt("worker_id") + "," +
+                        "\"workerName\":\"" + e(r.getString("worker_name")) + "\"," +
+                        "\"phone\":\"" + e(r.getString("phone")) + "\"," +
+                        "\"workType\":\"" + e(r.getString("work_type")) + "\"," +
+                        "\"address\":\"" + e(r.getString("address")) + "\"," +
+                        "\"salary\":" + r.getDouble("salary") + "," +
+                        "\"aadharNumber\":\"" + e(r.getString("aadhar_number")) + "\"," +
+                        "\"aadharImage\":\"" + e(image) + "\"," +
+                        "\"active\":" + r.getBoolean("active") + "}}";
+            }
+        } catch (Exception ex) { return err(ex.getMessage()); }
+    }
+
     public String addWorkerFromJson(String json) {
         String name = getString(json, "workerName");
         String phone = getString(json, "phone");
